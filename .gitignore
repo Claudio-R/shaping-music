@@ -1,2 +1,4 @@
 myenv/
 __pycache__/
+apikey.local.yml
+data/*.mp4
