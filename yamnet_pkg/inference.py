@@ -54,9 +54,6 @@ class YamNet:
         # Report the highest-scoring classes and their scores.
         top5_i = np.argsort(prediction)[::-1][:5]
         labels = [self.yamnet_classes[i] for i in top5_i]
-        print(audio, ':\n' +
-            '\n'.join('  {:12s}: {:.3f}'
-            .format(self.yamnet_classes[i], prediction[i]) for i in top5_i))
         return labels
     
     def summary(self):
