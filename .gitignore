@@ -1,4 +1,11 @@
 myenv/
 __pycache__/
 apikey.local.yml
-data/*.mp4
+
+# audio
+data/*/*.mp4
+data/*/*.wav
+
+# image
+data/*/*.png
+data/*/*.jpg
