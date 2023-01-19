@@ -81,3 +81,13 @@ The final goal of our project is to create a system which is able to generate vi
     4.3 The discriminator should distinguish the output of the autoencoder (from 4.2) from the ground truth; 
 
     4.4 Use the output of the discriminator to update the GAN.
+
+
+# How to use it
+From the root folder run the following command to install the dependencies:
+
+`pip install -r ./docs/requirements.txt`
+
+Then call:
+
+`python3 app.py`

@@ -18,8 +18,8 @@
 import numpy as np
 import tensorflow as tf
 
-import params
-import yamnet
+from . import params
+from . import yamnet
 
 class YAMNetTest(tf.test.TestCase):
 

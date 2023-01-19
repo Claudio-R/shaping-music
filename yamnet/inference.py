@@ -23,8 +23,8 @@ import resampy
 import soundfile as sf
 import tensorflow as ts
 
-import params as yamnet_params
-import yamnet as yamnet_model
+from . import params as yamnet_params
+from . import yamnet as yamnet_model
 
 class YamNet:
     def __init__(self):
