@@ -1,0 +1,311 @@
+Model: "yamnet_frames"
+__________________________________________________________________________________________________
+ Layer (type)                   Output Shape         Param #     Connected to                     
+==================================================================================================
+ input_2 (InputLayer)           [(None,)]            0           []                               
+                                                                                                  
+ tf.compat.v1.shape (TFOpLambda  (1,)                0           ['input_2[0][0]']                
+ )                                                                                                
+                                                                                                  
+ tf.__operators__.getitem (Slic  ()                  0           ['tf.compat.v1.shape[0][0]']     
+ ingOpLambda)                                                                                     
+                                                                                                  
+ tf.math.maximum_1 (TFOpLambda)  ()                  0           ['tf.__operators__.getitem[0][0]'
+                                                                 ]                                
+                                                                                                  
+ tf.math.subtract_1 (TFOpLambda  ()                  0           ['tf.math.maximum_1[0][0]']      
+ )                                                                                                
+                                                                                                  
+ tf.cast (TFOpLambda)           ()                   0           ['tf.math.subtract_1[0][0]']     
+                                                                                                  
+ tf.math.truediv (TFOpLambda)   ()                   0           ['tf.cast[0][0]']                
+                                                                                                  
+ tf.math.ceil (TFOpLambda)      ()                   0           ['tf.math.truediv[0][0]']        
+                                                                                                  
+ tf.cast_1 (TFOpLambda)         ()                   0           ['tf.math.ceil[0][0]']           
+                                                                                                  
+ tf.math.subtract (TFOpLambda)  ()                   0           ['tf.__operators__.getitem[0][0]'
+                                                                 ]                                
+                                                                                                  
+ tf.math.multiply (TFOpLambda)  ()                   0           ['tf.cast_1[0][0]']              
+                                                                                                  
+ tf.math.maximum (TFOpLambda)   ()                   0           ['tf.math.subtract[0][0]']       
+                                                                                                  
+ tf.math.subtract_2 (TFOpLambda  ()                  0           ['tf.math.multiply[0][0]',       
+ )                                                                'tf.math.subtract_1[0][0]']     
+                                                                                                  
+ tf.__operators__.add (TFOpLamb  ()                  0           ['tf.math.maximum[0][0]',        
+ da)                                                              'tf.math.subtract_2[0][0]']     
+                                                                                                  
+ tf.compat.v1.pad (TFOpLambda)  (None,)              0           ['input_2[0][0]',                
+                                                                  'tf.__operators__.add[0][0]']   
+                                                                                                  
+ tf.signal.stft (TFOpLambda)    (None, 257)          0           ['tf.compat.v1.pad[0][0]']       
+                                                                                                  
+ tf.math.abs (TFOpLambda)       (None, 257)          0           ['tf.signal.stft[0][0]']         
+                                                                                                  
+ tf.linalg.matmul (TFOpLambda)  (None, 64)           0           ['tf.math.abs[0][0]']            
+                                                                                                  
+ tf.__operators__.add_1 (TFOpLa  (None, 64)          0           ['tf.linalg.matmul[0][0]']       
+ mbda)                                                                                            
+                                                                                                  
+ tf.math.log (TFOpLambda)       (None, 64)           0           ['tf.__operators__.add_1[0][0]'] 
+                                                                                                  
+ tf.signal.frame (TFOpLambda)   (None, 96, 64)       0           ['tf.math.log[0][0]']            
+                                                                                                  
+ reshape (Reshape)              (None, 96, 64, 1)    0           ['tf.signal.frame[0][0]']        
+                                                                                                  
+ layer1/conv (Conv2D)           (None, 48, 32, 32)   288         ['reshape[0][0]']                
+                                                                                                  
+ layer1/conv/bn (BatchNormaliza  (None, 48, 32, 32)  96          ['layer1/conv[0][0]']            
+ tion)                                                                                            
+                                                                                                  
+ layer1/relu (ReLU)             (None, 48, 32, 32)   0           ['layer1/conv/bn[0][0]']         
+                                                                                                  
+ layer2/depthwise_conv (Depthwi  (None, 48, 32, 32)  288         ['layer1/relu[0][0]']            
+ seConv2D)                                                                                        
+                                                                                                  
+ layer2/depthwise_conv/bn (Batc  (None, 48, 32, 32)  96          ['layer2/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer2/depthwise_conv/relu (Re  (None, 48, 32, 32)  0           ['layer2/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer2/pointwise_conv (Conv2D)  (None, 48, 32, 64)  2048        ['layer2/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer2/pointwise_conv/bn (Batc  (None, 48, 32, 64)  192         ['layer2/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer2/pointwise_conv/relu (Re  (None, 48, 32, 64)  0           ['layer2/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer3/depthwise_conv (Depthwi  (None, 24, 16, 64)  576         ['layer2/pointwise_conv/relu[0][0
+ seConv2D)                                                       ]']                              
+                                                                                                  
+ layer3/depthwise_conv/bn (Batc  (None, 24, 16, 64)  192         ['layer3/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer3/depthwise_conv/relu (Re  (None, 24, 16, 64)  0           ['layer3/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer3/pointwise_conv (Conv2D)  (None, 24, 16, 128)  8192       ['layer3/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer3/pointwise_conv/bn (Batc  (None, 24, 16, 128)  384        ['layer3/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer3/pointwise_conv/relu (Re  (None, 24, 16, 128)  0          ['layer3/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer4/depthwise_conv (Depthwi  (None, 24, 16, 128)  1152       ['layer3/pointwise_conv/relu[0][0
+ seConv2D)                                                       ]']                              
+                                                                                                  
+ layer4/depthwise_conv/bn (Batc  (None, 24, 16, 128)  384        ['layer4/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer4/depthwise_conv/relu (Re  (None, 24, 16, 128)  0          ['layer4/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer4/pointwise_conv (Conv2D)  (None, 24, 16, 128)  16384      ['layer4/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer4/pointwise_conv/bn (Batc  (None, 24, 16, 128)  384        ['layer4/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer4/pointwise_conv/relu (Re  (None, 24, 16, 128)  0          ['layer4/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer5/depthwise_conv (Depthwi  (None, 12, 8, 128)  1152        ['layer4/pointwise_conv/relu[0][0
+ seConv2D)                                                       ]']                              
+                                                                                                  
+ layer5/depthwise_conv/bn (Batc  (None, 12, 8, 128)  384         ['layer5/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer5/depthwise_conv/relu (Re  (None, 12, 8, 128)  0           ['layer5/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer5/pointwise_conv (Conv2D)  (None, 12, 8, 256)  32768       ['layer5/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer5/pointwise_conv/bn (Batc  (None, 12, 8, 256)  768         ['layer5/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer5/pointwise_conv/relu (Re  (None, 12, 8, 256)  0           ['layer5/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer6/depthwise_conv (Depthwi  (None, 12, 8, 256)  2304        ['layer5/pointwise_conv/relu[0][0
+ seConv2D)                                                       ]']                              
+                                                                                                  
+ layer6/depthwise_conv/bn (Batc  (None, 12, 8, 256)  768         ['layer6/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer6/depthwise_conv/relu (Re  (None, 12, 8, 256)  0           ['layer6/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer6/pointwise_conv (Conv2D)  (None, 12, 8, 256)  65536       ['layer6/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer6/pointwise_conv/bn (Batc  (None, 12, 8, 256)  768         ['layer6/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer6/pointwise_conv/relu (Re  (None, 12, 8, 256)  0           ['layer6/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer7/depthwise_conv (Depthwi  (None, 6, 4, 256)   2304        ['layer6/pointwise_conv/relu[0][0
+ seConv2D)                                                       ]']                              
+                                                                                                  
+ layer7/depthwise_conv/bn (Batc  (None, 6, 4, 256)   768         ['layer7/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer7/depthwise_conv/relu (Re  (None, 6, 4, 256)   0           ['layer7/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer7/pointwise_conv (Conv2D)  (None, 6, 4, 512)   131072      ['layer7/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer7/pointwise_conv/bn (Batc  (None, 6, 4, 512)   1536        ['layer7/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer7/pointwise_conv/relu (Re  (None, 6, 4, 512)   0           ['layer7/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer8/depthwise_conv (Depthwi  (None, 6, 4, 512)   4608        ['layer7/pointwise_conv/relu[0][0
+ seConv2D)                                                       ]']                              
+                                                                                                  
+ layer8/depthwise_conv/bn (Batc  (None, 6, 4, 512)   1536        ['layer8/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer8/depthwise_conv/relu (Re  (None, 6, 4, 512)   0           ['layer8/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer8/pointwise_conv (Conv2D)  (None, 6, 4, 512)   262144      ['layer8/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer8/pointwise_conv/bn (Batc  (None, 6, 4, 512)   1536        ['layer8/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer8/pointwise_conv/relu (Re  (None, 6, 4, 512)   0           ['layer8/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer9/depthwise_conv (Depthwi  (None, 6, 4, 512)   4608        ['layer8/pointwise_conv/relu[0][0
+ seConv2D)                                                       ]']                              
+                                                                                                  
+ layer9/depthwise_conv/bn (Batc  (None, 6, 4, 512)   1536        ['layer9/depthwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer9/depthwise_conv/relu (Re  (None, 6, 4, 512)   0           ['layer9/depthwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer9/pointwise_conv (Conv2D)  (None, 6, 4, 512)   262144      ['layer9/depthwise_conv/relu[0][0
+                                                                 ]']                              
+                                                                                                  
+ layer9/pointwise_conv/bn (Batc  (None, 6, 4, 512)   1536        ['layer9/pointwise_conv[0][0]']  
+ hNormalization)                                                                                  
+                                                                                                  
+ layer9/pointwise_conv/relu (Re  (None, 6, 4, 512)   0           ['layer9/pointwise_conv/bn[0][0]'
+ LU)                                                             ]                                
+                                                                                                  
+ layer10/depthwise_conv (Depthw  (None, 6, 4, 512)   4608        ['layer9/pointwise_conv/relu[0][0
+ iseConv2D)                                                      ]']                              
+                                                                                                  
+ layer10/depthwise_conv/bn (Bat  (None, 6, 4, 512)   1536        ['layer10/depthwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer10/depthwise_conv/relu (R  (None, 6, 4, 512)   0           ['layer10/depthwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer10/pointwise_conv (Conv2D  (None, 6, 4, 512)   262144      ['layer10/depthwise_conv/relu[0][
+ )                                                               0]']                             
+                                                                                                  
+ layer10/pointwise_conv/bn (Bat  (None, 6, 4, 512)   1536        ['layer10/pointwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer10/pointwise_conv/relu (R  (None, 6, 4, 512)   0           ['layer10/pointwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer11/depthwise_conv (Depthw  (None, 6, 4, 512)   4608        ['layer10/pointwise_conv/relu[0][
+ iseConv2D)                                                      0]']                             
+                                                                                                  
+ layer11/depthwise_conv/bn (Bat  (None, 6, 4, 512)   1536        ['layer11/depthwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer11/depthwise_conv/relu (R  (None, 6, 4, 512)   0           ['layer11/depthwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer11/pointwise_conv (Conv2D  (None, 6, 4, 512)   262144      ['layer11/depthwise_conv/relu[0][
+ )                                                               0]']                             
+                                                                                                  
+ layer11/pointwise_conv/bn (Bat  (None, 6, 4, 512)   1536        ['layer11/pointwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer11/pointwise_conv/relu (R  (None, 6, 4, 512)   0           ['layer11/pointwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer12/depthwise_conv (Depthw  (None, 6, 4, 512)   4608        ['layer11/pointwise_conv/relu[0][
+ iseConv2D)                                                      0]']                             
+                                                                                                  
+ layer12/depthwise_conv/bn (Bat  (None, 6, 4, 512)   1536        ['layer12/depthwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer12/depthwise_conv/relu (R  (None, 6, 4, 512)   0           ['layer12/depthwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer12/pointwise_conv (Conv2D  (None, 6, 4, 512)   262144      ['layer12/depthwise_conv/relu[0][
+ )                                                               0]']                             
+                                                                                                  
+ layer12/pointwise_conv/bn (Bat  (None, 6, 4, 512)   1536        ['layer12/pointwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer12/pointwise_conv/relu (R  (None, 6, 4, 512)   0           ['layer12/pointwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer13/depthwise_conv (Depthw  (None, 3, 2, 512)   4608        ['layer12/pointwise_conv/relu[0][
+ iseConv2D)                                                      0]']                             
+                                                                                                  
+ layer13/depthwise_conv/bn (Bat  (None, 3, 2, 512)   1536        ['layer13/depthwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer13/depthwise_conv/relu (R  (None, 3, 2, 512)   0           ['layer13/depthwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer13/pointwise_conv (Conv2D  (None, 3, 2, 1024)  524288      ['layer13/depthwise_conv/relu[0][
+ )                                                               0]']                             
+                                                                                                  
+ layer13/pointwise_conv/bn (Bat  (None, 3, 2, 1024)  3072        ['layer13/pointwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer13/pointwise_conv/relu (R  (None, 3, 2, 1024)  0           ['layer13/pointwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer14/depthwise_conv (Depthw  (None, 3, 2, 1024)  9216        ['layer13/pointwise_conv/relu[0][
+ iseConv2D)                                                      0]']                             
+                                                                                                  
+ layer14/depthwise_conv/bn (Bat  (None, 3, 2, 1024)  3072        ['layer14/depthwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer14/depthwise_conv/relu (R  (None, 3, 2, 1024)  0           ['layer14/depthwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ layer14/pointwise_conv (Conv2D  (None, 3, 2, 1024)  1048576     ['layer14/depthwise_conv/relu[0][
+ )                                                               0]']                             
+                                                                                                  
+ layer14/pointwise_conv/bn (Bat  (None, 3, 2, 1024)  3072        ['layer14/pointwise_conv[0][0]'] 
+ chNormalization)                                                                                 
+                                                                                                  
+ layer14/pointwise_conv/relu (R  (None, 3, 2, 1024)  0           ['layer14/pointwise_conv/bn[0][0]
+ eLU)                                                            ']                               
+                                                                                                  
+ global_average_pooling2d (Glob  (None, 1024)        0           ['layer14/pointwise_conv/relu[0][
+ alAveragePooling2D)                                             0]']                             
+                                                                                                  
+ dense (Dense)                  (None, 521)          534025      ['global_average_pooling2d[0][0]'
+                                                                 ]                                
+                                                                                                  
+ activation (Activation)        (None, 521)          0           ['dense[0][0]']                  
+                                                                                                  
+==================================================================================================
+Total params: 3,751,369
+Trainable params: 3,729,481
+Non-trainable params: 21,888
+__________________________________________________________________________________________________
