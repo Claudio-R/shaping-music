@@ -1,5 +1,5 @@
 
-Assume this is the structure of the directory tree from here:
+Assume this is the structure of the directory from here:
 - data
     - generated_clips
     - generated_images
