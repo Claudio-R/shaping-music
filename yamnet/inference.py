@@ -30,8 +30,8 @@ class YamNet:
     def __init__(self):
         self.params = yamnet_params.Params()
         self.yamnet = yamnet_model.yamnet_frames_model(self.params)
-        self.yamnet.load_weights('yamnet_pkg/yamnet.h5')
-        self.yamnet_classes = yamnet_model.class_names('yamnet_pkg/yamnet_class_map.csv')
+        self.yamnet.load_weights("yamnet/yamnet.h5")
+        self.yamnet_classes = yamnet_model.class_names('yamnet/yamnet_class_map.csv')
         self.input = self.yamnet.input
   
     def __call__(self, audio):
