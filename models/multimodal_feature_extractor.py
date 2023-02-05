@@ -21,6 +21,7 @@ class MultimodalFeatureExtractor:
         print('MultimodalFeatureExtractor initialized.')
 
     
+    # TODO: declare this call a tf.function fixing bug on load_image() function
     @dispatch(str)
     def __call__(self, video_url: str) -> Tuple[tf.data.Dataset, tf.data.Dataset]:
         '''

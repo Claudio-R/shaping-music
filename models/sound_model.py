@@ -25,4 +25,6 @@ class SoundModel(tf.keras.Model):
 
 if __name__ == '__main__':
     sound_model = SoundModel()
-    print(sound_model('data/test_samples/segment2.wav'))
+    embeds = sound_model('data/test_samples/segment2.wav')
+    print("Output shape:", embeds.shape)
+    print("Output type:", embeds.dtype)

@@ -9,3 +9,6 @@ data/*/*.wav
 # image
 data/*/*.png
 data/*/*.jpg
+
+# weights
+data/*/*.h5

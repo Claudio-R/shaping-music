@@ -3,8 +3,8 @@ import traceback
 from src import FeaturesExtraction, DataEncoding, Generation
 
 stages = [
-    True,
     False,
+    True,
     False,
 ]
 

@@ -46,5 +46,6 @@ class ImageModel(tf.keras.Model):
 
 if __name__ == '__main__':
     img_model = ImageModel()
-    img_model.summary()
-    print(img_model('data/test_frames/frame1.jpg'))
+    embeds = img_model('data/test_frames/frame1.jpg')
+    print("Output shape:", embeds.shape)
+    print("Output type:", embeds.dtype)
