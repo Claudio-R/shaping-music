@@ -3,8 +3,10 @@ import tensorflow as tf
 class Discriminator(tf.keras.Sequential):
     def __init__(self, *args, **kwargs):
         super(Discriminator, self).__init__(*args, **kwargs)
-        # First Layer
-        self.add(tf.keras.layers.Input(shape=(28,28,1)))
+        # First Layer upsample to 14x14
+        self.add(tf.keras.layers.Input(shape=(1024)))
+        self.add(tf.keras.layers.Reshape((4, 4, 64)))
+
         self.add(tf.keras.layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same'))
         self.add(tf.keras.layers.LeakyReLU())
         self.add(tf.keras.layers.Dropout(0.3))

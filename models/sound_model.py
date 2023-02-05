@@ -1,39 +1,28 @@
 import tensorflow as tf
-from yamnet.inference import YamNet
-from utils.AudioUtils import load_wav
+import tensorflow_hub as hub
+import tensorflow_io as tfio
 
 class SoundModel(tf.keras.Model):
-    '''
-    YAMNet-based model for embedding sounds
-    '''
     def __init__(self, *args, **kwargs):
-        yamnet = YamNet()
-        yamnet.trainable = False
-        output_layers = ['layer14/pointwise_conv/relu']
-        output_layers = [yamnet.get_layer(name).output for name in output_layers]
-        yamnet_output = output_layers[-1]
-        yamnet_output_shape = yamnet_output.shape
-        pool_size = (min(yamnet_output_shape[1], yamnet_output_shape[2]))
-        pooling_layer = tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=None)(yamnet_output)
-        output_layer = tf.keras.layers.Flatten()(pooling_layer)
-        super(SoundModel, self).__init__([yamnet.input], output_layer, name='SoundEmbeddingsExtractor', *args, **kwargs)
+        self.model = hub.load('https://tfhub.dev/google/yamnet/1')
+        super(SoundModel, self).__init__(*args, **kwargs)
 
-    def __call__(self, wav_url:str):
+    def __call__(self, wav_url:str) -> tf.Tensor:
         waveform = self.__preprocess(wav_url)
-        return super(SoundModel, self).__call__(waveform)
-
-    def __preprocess(self, wav_url:str):
-        waveform = load_wav(wav_url)
-        waveform = waveform / tf.int16.max
-        return waveform
-
-    def get_dataset(self, wav_urls:list):
-        '''
-        Returns a tf.data.Dataset containing the embeddings of the sounds in wav_urls
-        '''
-        waveforms = [self.__preprocess(url) for url in wav_urls]
-        return tf.data.Dataset.from_tensor_slices(waveforms).map(lambda x: self(x))
+        scores, embeddings, spectrogram = self.model(waveform)
+        return embeddings
+    
+    def __preprocess(self, wav_url:str) -> tf.Tensor:
+        """ Load a WAV file, convert it to a float tensor, resample to 16 kHz single-channel audio. """
+        file_contents = tf.io.read_file(wav_url)
+        wav, sample_rate = tf.audio.decode_wav(
+            file_contents,
+            desired_channels=1)
+        wav = tf.squeeze(wav, axis=-1)
+        sample_rate = tf.cast(sample_rate, dtype=tf.int64)
+        wav = tfio.audio.resample(wav, rate_in=sample_rate, rate_out=16000)
+        return wav
 
 if __name__ == '__main__':
     sound_model = SoundModel()
-    sound_model.summary()
+    print(sound_model('data/test_samples/segment2.wav'))
