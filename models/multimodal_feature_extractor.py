@@ -4,6 +4,7 @@ from utils.VideoUtils import preprocess_video
 from multipledispatch import dispatch
 from models.image_model import ImageModel
 from models.sound_model import SoundModel
+import tensorflow as tf
 
 class MultimodalFeatureExtractor:
     '''
@@ -17,18 +18,16 @@ class MultimodalFeatureExtractor:
         self.input_sounds_path = 'data/test_samples'        
         self.image_model = ImageModel()
         self.sound_model = SoundModel()
-        print('MultimodalFeatureExtractor initialized:')
-        print('Image model:', self.image_model.output_shape)
-        print('Sound model:', self.sound_model.output_shape)
+        print('MultimodalFeatureExtractor initialized.')
 
+    
     @dispatch(str)
-    def __call__(self, video_url: str) -> Tuple[list, list]:
+    def __call__(self, video_url: str) -> Tuple[tf.data.Dataset, tf.data.Dataset]:
         '''
         Extracts features from a mp4 video and returns two lists containing the embeddings from images and frames.
         '''
         imgs_list, wavs_list = self.__process_video(video_url)     
 
-        print('Extracting features from the video:', video_url)
         audio_embeds = []
         video_embeds = []
         for i in range(len(imgs_list)):
@@ -39,20 +38,24 @@ class MultimodalFeatureExtractor:
             sys.stdout.write('\r')
             sys.stdout.write('Progress: %d/%d' % (i+1, len(imgs_list)))
             sys.stdout.flush()
+        sys.stdout.write('\n')
 
-        return (video_embeds, audio_embeds)
+        
+        # convert to stacks 
+        audio_embeds = tf.stack(audio_embeds)
+        video_embeds = tf.stack(video_embeds)
+
+        return video_embeds, audio_embeds
     
     @dispatch(str, str)
-    def __call__(self, files_type:str, file_urls:str) -> list:
+    def __call__(self, file_type:str, file_url:str) -> list:
         '''
         Extracts features from an audio or video and returns two lists containing the embeddings.
         '''
-        if files_type == 'image':
-            print('Extracting features from the images')
-            embeds = [self.image_model(file_url) for file_url in file_urls]
-        elif files_type == 'sound':
-            print('Extracting features from the sounds')
-            embeds = [self.sound_model(file_url) for file_url in file_urls]
+        if file_type == 'image':
+            embeds = self.image_model(file_url)
+        elif file_type == 'sound':
+            embeds = self.sound_model(file_url)
         else:
             raise ValueError('Invalid file type. Must be either image or sound.')
         return embeds
@@ -88,11 +91,11 @@ class MultimodalFeatureExtractor:
         wav_embed = self.sound_model(wav_url)
         return (img_embed, wav_embed)
     
-    def get_output_shapes(self):
-        '''
-        Returns the output shapes of the image and sound models
-        '''
-        return (self.image_model.output_shape, self.sound_model.output_shape)
+    # def get_output_shapes(self):
+    #     '''
+    #     Returns the output shapes of the image and sound models
+    #     '''
+    #     return (self.image_model.output_shape, self.sound_model.output_shape)
 
     def get_dataset(self, files_type:str, urls: list):
         '''
@@ -118,4 +121,4 @@ class MultimodalFeatureExtractor:
         # for filename in os.listdir(self.input_sounds_path):
         #     path = os.path.join(self.input_sounds_path, filename)
         #     os.remove(path)
-        
+    

@@ -14,5 +14,11 @@ class ImageToSoundEncoder(tf.keras.Sequential):
             tf.keras.layers.ConvLSTM2D(input_shape[-1], kernel_size=(2,2), activation='relu'),
             tf.keras.layers.Conv2D(output_shape[-1], kernel_size=(2,2)),
             tf.keras.layers.AveragePooling2D(pool_size=(3,3), strides=None),
+            tf.keras.layers.Flatten()
         ])
         self.compile(optimizer='adam', loss='binary_crossentropy')
+
+if __name__ == "__main__":
+    encoder = ImageToSoundEncoder()
+    encoder.summary()
+    print(encoder.output_shape)

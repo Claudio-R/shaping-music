@@ -1,7 +1,7 @@
 import tensorflow as tf
 import matplotlib.pyplot as plt
 
-def load_img(img_url:str):
+def load_image(img_url:str):
     max_dim = 512
     img = tf.io.read_file(img_url)
     img = tf.image.decode_image(img, channels=3)
