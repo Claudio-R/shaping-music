@@ -7,15 +7,14 @@ class ImageToSoundEncoder(tf.keras.Sequential):
         image_embeds = embeddings['video_embeds']
         sound_embeds = embeddings['audio_embeds']
         input_shape = image_embeds.shape[1:]
-        output_shape = sound_embeds.shape[1:]
+        output_shape = sound_embeds.shape[-1]
 
+        # TODO: more weights ends up exhausting GPU memory
         super(ImageToSoundEncoder, self).__init__([
-            tf.keras.layers.Input(shape=(input_shape)),
-            tf.keras.layers.ConvLSTM2D(input_shape[-1], kernel_size=(2,2), activation='relu'),
-            tf.keras.layers.Conv2D(output_shape[-1], kernel_size=(2,2)),
-            tf.keras.layers.AveragePooling2D(pool_size=(3,3), strides=None),
-            tf.keras.layers.Flatten()
-        ])
+            tf.keras.layers.Input(shape=input_shape, dtype=tf.float32, name='input_image_embedding'),
+            tf.keras.layers.LSTM(512, return_sequences=True),
+            tf.keras.layers.Dense(output_shape, name='output_sound_embedding')
+            ])
         self.compile(optimizer='adam', loss='binary_crossentropy')
 
 if __name__ == "__main__":
