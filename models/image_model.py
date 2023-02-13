@@ -1,31 +1,34 @@
 import tensorflow as tf
 
-class ImageModel(tf.keras.Model):
+SIZE = 56 # this should be 512 for the final model
+
+class ImageModel(tf.keras.Sequential):
     '''
     VGG19-based model for embedding images
     '''
-    def __init__(self):
-        output_layers = ['block4_pool']
+    def __init__(self, *args, **kwargs):
+        super(ImageModel, self).__init__(*args, **kwargs)
+        input_shape = (SIZE, SIZE, 3)
+        input_layer = tf.keras.layers.InputLayer(input_shape)
+        conv2D_layer = tf.keras.layers.Conv2DTranspose(3, (5, 5), strides=(4,4), padding='same', use_bias=False, name="adaptation_layer")
         vgg19 = tf.keras.applications.VGG19(include_top=True, weights='imagenet')
-        output_layers = ['flatten']
-        output_layers = [vgg19.get_layer(name).output for name in output_layers]
-        super(ImageModel, self).__init__(inputs=vgg19.input, outputs=output_layers, name='ImageEmbeddingsExtractor')
-
+        self.add(input_layer)
+        self.add(conv2D_layer)
+        for layer in vgg19.layers[1:-3]:
+            self.add(layer)
+        
     def __call__(self, img_url:str) -> tf.Tensor:
-        '''
-        Returns the embedding of the image at img_url
-        '''
         img = self.__preprocess(img_url)
         return super(ImageModel, self).__call__(img)
 
     def __preprocess(self, img_url:str) -> tf.Tensor:
         img = self.__load_image(img_url)
         img = tf.keras.applications.vgg19.preprocess_input(img * 255)
-        return tf.image.resize(img, (224, 224))
+        return tf.image.resize(img, (SIZE, SIZE))
     
     @staticmethod
     def __load_image(img_url:str) -> tf.Tensor:
-        max_dim = 512
+        max_dim = SIZE
         img = tf.io.read_file(img_url)
         img = tf.image.decode_image(img, channels=3)
         img = tf.image.convert_image_dtype(img, tf.float32)
@@ -36,16 +39,12 @@ class ImageModel(tf.keras.Model):
         img = tf.image.resize(img, new_shape)
         img = img[tf.newaxis, :]
         return img
-
-    def get_dataset(self, img_urls:list) -> tf.data.Dataset:
-        '''
-        Returns a tf.data.Dataset containing the embeddings of the images in img_urls
-        '''
-        images = [self.__preprocess(url) for url in img_urls]
-        return tf.data.Dataset.from_tensor_slices(images).map(lambda x: self(x))
+    
+    def predict(self, img: tf.Tensor) -> tf.Tensor:
+        return super(ImageModel, self).__call__(img)
 
 if __name__ == '__main__':
     img_model = ImageModel()
-    embeds = img_model('data/test_frames/frame1.jpg')
-    print("Output shape:", embeds.shape)
-    print("Output type:", embeds.dtype)
+    img_model.compile(optimizer='adam', loss='categorical_crossentropy')
+    img_model.summary()
+    print('output shape: ', img_model.output_shape)

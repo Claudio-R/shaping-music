@@ -12,7 +12,7 @@ def extract_features(video_url:str):
         video_embeds, audio_embeds = mfe(video_url)
         print("Video Embeddings Shape: ", video_embeds.shape)
         print("Audio Embeddings Shape: ", audio_embeds.shape)
-        np.savez_compressed('data/processed/embeddings.npz', video_embeds=video_embeds, audio_embeds=audio_embeds)
+        np.savez_compressed('data/embeddings/embeds.npz', video_embeds=video_embeds, audio_embeds=audio_embeds)
         return dict(video_embeds=video_embeds, audio_embeds=audio_embeds)
     except:
         print("Error in loading the feature extractor model")
