@@ -1,12 +1,11 @@
 import os, sys
-import time
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import tensorflow as tf
-from IPython import display
 import PIL
 from models.multimodal_feature_extractor import MultimodalFeatureExtractor
 from models.image_to_sound_encoder import ImageToSoundEncoder
+from models.sound_to_image_encoder import SoundToImageEncoder
 from models.generator import Generator
 from models.discriminator import Discriminator
 
@@ -14,91 +13,79 @@ class GenerativeAdversarialNetwork():
     def __init__(self):
         self.generator = Generator()
         self.discriminator = Discriminator()
-        self.feature_extractor = MultimodalFeatureExtractor()
-        self.image_to_sound_encoder = ImageToSoundEncoder()
-        self.image_to_sound_encoder.load_weights('models/weights/image_to_sound_encoder.h5')
+        self.mfe = MultimodalFeatureExtractor()
+        self.i2sEncoder = ImageToSoundEncoder()
+        self.i2sEncoder.load_weights('data/weights/image_to_sound_encoder.h5')
+
+        self.s2iEncoder = SoundToImageEncoder()
+        self.s2iEncoder.load_weights('data/weights/sound_to_image_encoder.h5')
 
         self.generator_optimizer = tf.keras.optimizers.Adam(1e-4)
         self.discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
-        self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
         self.checkpoint_dir = 'data/checkpoints'
         self.checkpoint_prefix = os.path.join(self.checkpoint_dir, "gan_ckpt")
-        self.checkpoint = tf.train.Checkpoint(generator_optimizer=self.generator_optimizer,
-                                        discriminator_optimizer=self.discriminator_optimizer,
-                                        generator=self.generator,
-                                        discriminator=self.discriminator)
+        self.checkpoint = tf.train.Checkpoint(
+            generator_optimizer=self.generator_optimizer,
+            discriminator_optimizer=self.discriminator_optimizer,
+            generator=self.generator,
+            discriminator=self.discriminator
+            )
     
-    @tf.function
-    def fit(self, audio_urls, epochs, seed):
-        print(audio_urls)
+    # TODO: Convert this to a tf.function and fix bug in __load_image()
+    def train(self, audio_urls, epochs, seed):
         for epoch in range(epochs):
-            start = time.time()
-            for i, audio_batch in enumerate(audio_urls):
+            print("Epoch: {}".format(epoch))
+            for audio_batch in enumerate(audio_urls):
                 self.__train_step(audio_batch)
-                sys.stdout.write('\r')
-                sys.stdout.write('Progress: %d/%d' % (i+1, len(audio_urls)))
-                sys.stdout.flush()
 
-            display.clear_output(wait=True)
-            self.__generate_and_save_images(self.generator, epoch + 1, seed)
             if (epoch + 1) % 2 == 0:
                 self.checkpoint.save(file_prefix = self.checkpoint_prefix)
-            print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
-
-        display.clear_output(wait=True)
-        self.__generate_and_save_images(self.generator, epochs, seed)
+            
+            print("Generating and saving images")
+            img = self.generator(seed, training=False)
+            img = (img[0, :, :, :]).numpy().astype(np.uint8)
+            PIL.Image.fromarray(img).save('data/generated_images/image_at_epoch_{:04d}.png'.format(epoch))
+                
+        self.generator.save_weights('data/weights/gan_generator.h5')
+        self.discriminator.save_weights('data/weights/gan_discriminator.h5')
         
-    def __train_step(self, audio_urls, BATCH_SIZE=1, noise_dim=100):
-        noise = tf.random.normal([BATCH_SIZE, noise_dim])
+    def __train_step(self, audio_batch, noise_dim=100):
+        noise = tf.random.normal([len(audio_batch), noise_dim])
 
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-            # generate images from noise and add a new dimension
-            generated_image = self.generator(noise, training=True)
-            generated_image = tf.expand_dims(generated_image, axis=0)
+            gen_tape.watch(self.generator.trainable_variables)
+            disc_tape.watch(self.discriminator.trainable_variables)
 
-            # encode images to audio
-            generated_audio_embeds = self.image_to_sound_encoder(generated_image, training=False)
-            
-            # extract audio features from audio urls
-            original_audio_embeds = self.feature_extractor('sound', audio_urls)
-            
+            # generate an image
+            generated_image = self.generator(noise, training=True)
+            generated_image = tf.expand_dims(generated_image[0, :, :, :], 0)
+
+            # extract image embeddings from generated image
+            generated_image_embeds = self.mfe.predict_from_image(generated_image)
+            generated_image_embeds = tf.expand_dims(generated_image_embeds, 0)
+
+            # encode image embeddings to sound embeddings
+            generated_audio_embeds = self.i2sEncoder(generated_image_embeds, training=False)
+
+            # extract audio embeddings from original audio
+            original_audio_embeds = self.mfe('sound', audio_batch)
+
             # feed audio features to discriminator
             real_output = self.discriminator(original_audio_embeds, training=True)
             fake_output = self.discriminator(generated_audio_embeds, training=True)
-            
+
             # calculate losses
             gen_loss = self.generator.generator_loss(fake_output)
             disc_loss = self.discriminator.discriminator_loss(real_output, fake_output)
 
+        # calculate gradients and apply them
         gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
         gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
-
         self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
         self.discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, self.discriminator.trainable_variables))
                  
-    def __generate_and_save_images(self, model, epoch, seed):
-        size = int(np.sqrt(seed.shape[0]))
-        predictions = model(seed, training=False)
-        fig = plt.figure(figsize=(size*2, size*2))
-        for i in range(predictions.shape[0]):
-            plt.subplot(size, size, i+1)
-            plt.imshow(predictions[i, :, :, 0] * 127.5 + 127.5, cmap='gray')
-            plt.axis('off')
-        plt.savefig('data/generated_images/image_at_epoch_{:04d}.png'.format(epoch))
-        plt.show()
-
     def restore(self):
         self.checkpoint.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
 
-    def display_image(self, epoch_no):
-        return PIL.Image.open('image_at_epoch_{:04d}.png'.format(epoch_no))
-
-    def save_weights(self):
-        self.generator.save_weights('models/weights/generator.h5')
-        self.discriminator.save_weights('models/weights/discriminator.h5')
-    
-
-if __name__ == '__main__':
-    gan = GenerativeAdversarialNetwork(Generator, Discriminator)
     

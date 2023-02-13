@@ -1,22 +1,18 @@
 import tensorflow as tf
 
+AUDIO_EMBEDS_SHAPE = 1024 # this should be 512 for the final model
+
 class Discriminator(tf.keras.Sequential):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, input_shape=(None, 1, AUDIO_EMBEDS_SHAPE), *args, **kwargs):
         super(Discriminator, self).__init__(*args, **kwargs)
-        # First Layer upsample to 14x14
-        self.add(tf.keras.layers.Input(shape=(1024)))
-        self.add(tf.keras.layers.Reshape((4, 4, 64)))
-
-        self.add(tf.keras.layers.Conv2D(64, (5, 5), strides=(2, 2), padding='same'))
+        self.add(tf.keras.layers.Dense(input_shape[1]*input_shape[2]))
         self.add(tf.keras.layers.LeakyReLU())
         self.add(tf.keras.layers.Dropout(0.3))
 
-        # Second Layer
-        self.add(tf.keras.layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same'))
+        self.add(tf.keras.layers.Dense(128))
         self.add(tf.keras.layers.LeakyReLU())
         self.add(tf.keras.layers.Dropout(0.3))
 
-        # Third Layer
         self.add(tf.keras.layers.Flatten())
         self.add(tf.keras.layers.Dense(1))
 
@@ -26,3 +22,9 @@ class Discriminator(tf.keras.Sequential):
         fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
         total_loss = real_loss + fake_loss
         return total_loss
+
+if __name__ == "__main__":
+    discriminator = Discriminator()
+    noise = tf.random.normal([1, 1024])
+    discriminator(noise, training=False)
+    discriminator.summary()

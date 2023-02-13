@@ -12,3 +12,9 @@ data/*/*.jpg
 
 # weights
 data/*/*.h5
+
+# embeddings
+data/embeddings/
+
+# checkpoints
+data/checkpoints/

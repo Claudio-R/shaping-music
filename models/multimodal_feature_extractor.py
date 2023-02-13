@@ -18,9 +18,7 @@ class MultimodalFeatureExtractor:
         self.input_sounds_path = 'data/test_samples'        
         self.image_model = ImageModel()
         self.sound_model = SoundModel()
-        print('MultimodalFeatureExtractor initialized.')
 
-    
     # TODO: declare this call a tf.function fixing bug on load_image() function
     @dispatch(str)
     def __call__(self, video_url: str) -> Tuple[tf.data.Dataset, tf.data.Dataset]:
@@ -40,8 +38,8 @@ class MultimodalFeatureExtractor:
             sys.stdout.write('Progress: %d/%d' % (i+1, len(imgs_list)))
             sys.stdout.flush()
         sys.stdout.write('\n')
+        sys.stdout.flush()
 
-        
         # convert to stacks 
         audio_embeds = tf.stack(audio_embeds)
         video_embeds = tf.stack(video_embeds)
@@ -91,35 +89,14 @@ class MultimodalFeatureExtractor:
         img_embed = self.image_model(img_url)
         wav_embed = self.sound_model(wav_url)
         return (img_embed, wav_embed)
-    
-    # def get_output_shapes(self):
-    #     '''
-    #     Returns the output shapes of the image and sound models
-    #     '''
-    #     return (self.image_model.output_shape, self.sound_model.output_shape)
-
-    def get_dataset(self, files_type:str, urls: list):
-        '''
-        Returns a tf.Dataset containing the embeddings for the given urls
-        '''
-        if files_type == 'image':
-            dataset = self.image_model.get_dataset(urls)
-        elif files_type == 'sound':
-            dataset = self.sound_model.get_dataset(urls)
-        else:
-            raise ValueError('Invalid file type. Must be either image or sound.')
-        return dataset
-
 
     def __cleanup(self):
         '''
         Cleans up the input folders
         '''
         print("\nCleaning up...")
-        # for filename in os.listdir(self.input_frames_path):
-        #     path = os.path.join(self.input_frames_path, filename)
-        #     os.remove(path)
-        # for filename in os.listdir(self.input_sounds_path):
-        #     path = os.path.join(self.input_sounds_path, filename)
-        #     os.remove(path)
+
+    # Public methods
+    def predict_from_image(self, img: tf.Tensor) -> tf.Tensor:
+        return self.image_model.predict(img)
     

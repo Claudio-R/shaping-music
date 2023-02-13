@@ -4,8 +4,8 @@ from src import FeaturesExtraction, DataEncoding, Generation
 
 stages = [
     False,
-    True,
     False,
+    True,
 ]
 
 if __name__ == "__main__":    
