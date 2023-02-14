@@ -15,7 +15,7 @@ def encode_data(path_to_embeddings:str='data/embeddings/embeds.npz'):
     # s2iEncoder.save_weights('data/weights/sound_to_image_encoder.h5')
     
     print("Training the Image to Sound Encoder")
-    i2sEncoder.fit(image_embeds, sound_embeds, epochs=20)
+    i2sEncoder.fit(image_embeds, sound_embeds, epochs=50)
     i2sEncoder.save_weights('data/weights/image_to_sound_encoder.h5')
 
     return i2sEncoder

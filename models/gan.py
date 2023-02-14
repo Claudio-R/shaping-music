@@ -36,7 +36,7 @@ class GenerativeAdversarialNetwork():
     def train(self, audio_urls, epochs, seed):
         for epoch in range(epochs):
             print("Epoch: {}".format(epoch))
-            for audio_batch in enumerate(audio_urls):
+            for audio_batch in audio_urls:
                 self.__train_step(audio_batch)
 
             if (epoch + 1) % 2 == 0:
@@ -44,7 +44,7 @@ class GenerativeAdversarialNetwork():
             
             print("Generating and saving images")
             img = self.generator(seed, training=False)
-            img = (img[0, :, :, :]).numpy().astype(np.uint8)
+            img = (img[0, :, :, :] * 127.5 + 127.5).numpy().astype(np.uint8)
             PIL.Image.fromarray(img).save('data/generated_images/image_at_epoch_{:04d}.png'.format(epoch))
                 
         self.generator.save_weights('data/weights/gan_generator.h5')

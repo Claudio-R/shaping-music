@@ -18,7 +18,7 @@ if __name__ == "__main__":
     The fourth argument is a boolean value that indicates whether the new images should be generated.
     '''
 
-    if len(sys.argv) < 2: file_name = 'data/test_video/test1.mp4'
+    if len(sys.argv) < 2: file_name = 'data/test_video/test2.mp4'
     else: file_name = sys.argv[1]
 
     if stages[0]:
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         
     if stages[1]:
         try:
-            encoder = DataEncoding.encode_data('data/processed/embeddings.npz')
+            encoder = DataEncoding.encode_data('data/embeddings/embeds.npz')
         except:
             print("Error in encoding data")
             traceback.print_exc()

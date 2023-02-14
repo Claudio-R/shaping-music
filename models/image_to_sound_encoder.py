@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 
 class ImageToSoundEncoder(tf.keras.Sequential):
-    def __init__ (self, path_to_embeddings:str='data/processed/embeddings.npz'):
+    def __init__ (self, path_to_embeddings:str='data/embeddings/embeds.npz'):
         embeddings = np.load(path_to_embeddings)
         image_embeds = embeddings['video_embeds']
         sound_embeds = embeddings['audio_embeds']

@@ -5,6 +5,7 @@ def train_gan(audio_urls:list):
     gan = GenerativeAdversarialNetwork()
     num_examples_to_generate = 1
     seed = tf.random.normal([num_examples_to_generate, 100])
-    gan.train(audio_urls, epochs=10, seed=seed)
+    gan.restore()
+    gan.train(audio_urls, epochs=50, seed=seed)
     gan.save_weights()
     return gan
