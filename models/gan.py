@@ -88,4 +88,7 @@ class GenerativeAdversarialNetwork():
     def restore(self):
         self.checkpoint.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
 
+    def save_weights(self):
+        self.generator.save_weights('data/weights/gan_generator.h5')
+        self.discriminator.save_weights('data/weights/gan_discriminator.h5')
     
