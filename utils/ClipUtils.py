@@ -1,9 +1,9 @@
 import os
 from moviepy.editor import *
 
-def create_clip(frames_path, audio_path, fps=2):
-    frames_path = [os.path.join(frames_path, f) for f in os.listdir(frames_path)]
-    frames = sorted(frames_path, key=lambda x: int(''.join(filter(str.isdigit, x))))
+def create_clip(frames_dir, audio_path, fps=2):
+    frames_files = [os.path.join(frames_dir, f) for f in os.listdir(frames_dir)]
+    frames = sorted(frames_files, key=lambda x: int(''.join(filter(str.isdigit, x))))
 
     audio_clip = AudioFileClip(audio_path)
     frame_duration = 1 / fps

@@ -21,7 +21,7 @@ def extract_audio(video_file, output_ext="wav"):
 def preprocess_video(video_url:str, image_dir:str, sound_dir:str, desired_fps:int=2):
     if not os.path.isdir(image_dir): os.mkdir(image_dir)
     if not os.path.isdir(sound_dir): os.mkdir(sound_dir)
-    # clear previous frames and audio
+
     for f in os.listdir(image_dir): os.remove(os.path.join(image_dir, f))
     for f in os.listdir(sound_dir): os.remove(os.path.join(sound_dir, f))
 

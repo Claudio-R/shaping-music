@@ -7,6 +7,8 @@ from models.image_to_sound_encoder import ImageToSoundEncoder
 from models.sound_to_image_encoder import SoundToImageEncoder
 from models.generator import Generator
 from models.discriminator import Discriminator
+from utils.AudioUtils import split_audio
+import librosa
 
 class GenerativeAdversarialNetwork():
     def __init__(self):
@@ -102,3 +104,46 @@ class GenerativeAdversarialNetwork():
     def load_weights(self):
         self.generator.load_weights('data/weights/gan_generator.h5')
         self.discriminator.load_weights('data/weights/gan_discriminator.h5')
+
+    def create_clip(self, song_path, sound_dir, fps=2):
+        frames_dir = 'data/generated_images'
+        
+        # 1. clear the frames directory and sound directory
+        for f in os.listdir(frames_dir):
+            os.remove(os.path.join(frames_dir, f))
+        for f in os.listdir(sound_dir):
+            os.remove(os.path.join(sound_dir, f))
+        
+        # 2. estimate BPM of the song and calculate the frame rate
+        y, sr = librosa.load(song_path)
+        tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
+        bpm = int(tempo)
+        fps = bpm / 60
+        print("Estimated BPM: {}".format(bpm))
+        print("Frame rate: {}".format(fps))
+        
+        # 3. split the audio into frames
+        split_audio(song_path, sound_dir, fps)
+        
+        # 4. generate images from the frames
+        sound_urls = [os.path.join(sound_dir, f) for f in os.listdir(sound_dir)]
+        images = []
+        for i, sound_url in enumerate(sound_urls):
+            input_wavs = self.generator.preprocess(sound_url)
+            generated_image = self.generator(input_wavs, training=False)
+            generated_image = (generated_image[0, :, :, :] * 127.5 + 127.5).numpy().astype(np.uint8)
+            images.append(generated_image)
+            sys.stdout.write('\r')
+            sys.stdout.write("[%-20s] %d%%" % ('='*int((i+1)/len(sound_urls)*20), int((i+1)/len(sound_urls)*100)))
+            sys.stdout.flush()
+        sys.stdout.write('\r')
+        sys.stdout.write("[%-20s] %d%%" % ('='*20, 100))
+        sys.stdout.flush()
+        print()
+
+        # 5. save the images
+        for i in range(len(images)):
+            PIL.Image.fromarray(images[i]).save('data/generated_images/image{}.png'.format(i))
+
+
+        return frames_dir, song_path

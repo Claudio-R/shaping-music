@@ -1,5 +1,6 @@
 import numpy as np
 import scipy 
+import librosa
 from scipy.io import wavfile
 from pydub import AudioSegment
 import os
@@ -27,9 +28,11 @@ def get_audio_segment(start, end, audio_file, dir, count):
 def split_audio(audio_file, dir, fps):
     audio = AudioSegment.from_wav(audio_file)
     duration = audio.duration_seconds
-    count = 0
-    for i in range(0, int(duration), int(1/fps)):
-        get_audio_segment(i, i+1, audio_file, dir, count)
-        count += 1
-    
-    return count
+    sampling_period = 1 / fps
+    num_segments = int(duration / sampling_period)
+
+    for i in range(num_segments):
+        start = i * sampling_period * 1000
+        end = (i + 1) * sampling_period * 1000
+        newAudio = audio[start:end]
+        newAudio.export(os.path.join(dir, f"audioSegment_{i}.wav"), format="wav")
