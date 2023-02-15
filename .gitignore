@@ -1,6 +1,4 @@
-myenv/
 __pycache__/
-apikey.local.yml
 
 # audio
 data/*/*.mp4

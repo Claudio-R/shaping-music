@@ -1,11 +1,13 @@
 import sys, os
 import traceback
+from . import ClipGeneration
 from src import FeaturesExtraction, DataEncoding, Generation
 
 stages = [
     False,
     False,
-    True,
+    False,
+    True
 ]
 
 if __name__ == "__main__":    
@@ -45,4 +47,11 @@ if __name__ == "__main__":
             gan = Generation.train_gan(file_names)
         except:
             print("Error in generating new images")
+            traceback.print_exc()
+
+    if stages[3]:
+        try:
+            ClipGeneration.create_clip_from_url(file_name, 'data/test_frames', 'data/test_samples')
+        except:
+            print("Error in creating the clip")
             traceback.print_exc()
