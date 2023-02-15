@@ -1,13 +1,12 @@
 import sys, os
 import traceback
-from . import ClipGeneration
-from src import FeaturesExtraction, DataEncoding, Generation
+from src import FeaturesExtraction, DataEncoding, Generation, ClipGeneration
 
 stages = [
     False,
     False,
-    False,
-    True
+    True,
+    False
 ]
 
 if __name__ == "__main__":    

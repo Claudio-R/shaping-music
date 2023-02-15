@@ -23,3 +23,13 @@ def get_audio_segment(start, end, audio_file, dir, count):
     newAudio = AudioSegment.from_wav(name)
     newAudio = newAudio[start_ms:end_ms]
     newAudio.export(os.path.join(dir, f"audioSegment_{count}.wav"), format="wav")
+
+def split_audio(audio_file, dir, fps):
+    audio = AudioSegment.from_wav(audio_file)
+    duration = audio.duration_seconds
+    count = 0
+    for i in range(0, int(duration), int(1/fps)):
+        get_audio_segment(i, i+1, audio_file, dir, count)
+        count += 1
+    
+    return count
