@@ -78,7 +78,7 @@ class GenerativeAdversarialNetwork():
             generated_audio_embeds = self.i2sEncoder(generated_image_embeds, training=False)
 
             # 4. extract audio embeddings from original audio
-            original_audio_embeds = self.mfe('sound', audio_url)
+            original_audio_embeds = self.mfe.predict_from_file(audio_url)
 
             # 5. feed audio features to discriminator
             real_output = self.discriminator(original_audio_embeds, training=True)
@@ -126,8 +126,9 @@ class GenerativeAdversarialNetwork():
         split_audio(song_path, sound_dir, fps)
         
         # 4. generate images from the frames
-        sound_urls = [os.path.join(sound_dir, f) for f in os.listdir(sound_dir)]
         images = []
+        sound_urls = [os.path.join(sound_dir, f) for f in os.listdir(sound_dir)]
+        print("Generating the frames...")
         for i, sound_url in enumerate(sound_urls):
             input_wavs = self.generator.preprocess(sound_url)
             generated_image = self.generator(input_wavs, training=False)
@@ -144,6 +145,5 @@ class GenerativeAdversarialNetwork():
         # 5. save the images
         for i in range(len(images)):
             PIL.Image.fromarray(images[i]).save('data/generated_images/image{}.png'.format(i))
-
 
         return frames_dir, song_path

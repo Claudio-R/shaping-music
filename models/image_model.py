@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 SIZE = 56 # this should be 512 for the final model
 

@@ -3,10 +3,10 @@ import traceback
 from src import FeaturesExtraction, DataEncoding, Generation, ClipGeneration
 
 stages = [
+    True,
     False,
     False,
-    False,
-    True
+    False
 ]
 
 if __name__ == "__main__":    
