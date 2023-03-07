@@ -4,7 +4,7 @@ from src import FeaturesExtraction, DataEncoding, Generation, ClipGeneration
 
 stages = [
     True,
-    False,
+    True,
     False,
     False
 ]
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         
     if stages[1]:
         try:
-            encoder = DataEncoding.encode_data('data/embeddings/embeds.npz')
+            s2iEncoder, i2sEncoder = DataEncoding.encode_data(features)
         except:
             print("Error in encoding data")
             traceback.print_exc()

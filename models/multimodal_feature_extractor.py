@@ -28,10 +28,11 @@ class MultimodalFeatureExtractor:
             - sound_embeds: list of lists containing the style tensors for each sound
         '''
         frames_embeds, sound_embeds = [], []
+        print('Feature extraction started.')
         for i in range(len(frame_urls)):
             frames_embeds.append(self.image_model(frame_urls[i]))
             sound_embeds.append(self.sound_model(sound_urls[i]))
-            print_progress_bar(i+1, len(frame_urls), prefix="\nComputing embeddings:", length = 50, fill = '=')
+            print_progress_bar(i+1, len(frame_urls), prefix="Computing embeddings:", length = 50, fill = '=')
         return frames_embeds, sound_embeds
 
     def predict_from_image(self, img: tf.Tensor) -> list:

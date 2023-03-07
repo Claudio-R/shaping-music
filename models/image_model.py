@@ -11,13 +11,19 @@ class ImageModel():
         vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
         inputs = vgg19.input
         # outputs = ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
-        outputs = ['block4_conv1', 'block5_conv1']
-        self.model = tf.keras.Model(inputs=inputs, outputs=[vgg19.get_layer(output).output for output in outputs], name='image_model')
+        outputs = ['block1_conv1']
+        if type(outputs) != list: outputs = [outputs]
+        self.model = tf.keras.Model(
+            inputs=inputs, 
+            outputs=[vgg19.get_layer(output).output for output in outputs], 
+            name='image_model'
+            )
         
     def __call__(self, img_url:str) -> tf.Tensor:
         ''' Extracts the style from an image '''
         img = self.__preprocess(img_url)
         outputs = self.model(img)
+        if type(outputs) != list: outputs = [outputs]
         style_outputs = [self.extract_style(output) for output in outputs]
         return style_outputs
 

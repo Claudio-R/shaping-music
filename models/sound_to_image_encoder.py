@@ -2,12 +2,20 @@ import tensorflow as tf
 import numpy as np
 
 class SoundToImageEncoder(tf.keras.Sequential):
-    def __init__(self, path_to_embeddings:str='data/embeddings/embeds.npz', *args, **kwargs):
-        embeddings = np.load(path_to_embeddings)
-        sound_embeds = embeddings['audio_embeds']
-        image_embeds = embeddings['video_embeds']
-        input_shape = sound_embeds.shape[1:] # (1, 1024)
-        output_shape = image_embeds.shape[-1] # (1, 25088)
+    def __init__(self, data:dict, *args, **kwargs):
+        sound_embeds = data['audio_embeds']
+        image_embeds = data['video_embeds']
+
+        flatten = tf.keras.layers.Flatten()
+        for i in range(len(image_embeds)):
+            for j in range(len(image_embeds[i])):
+                image_embeds[i][j] = flatten(image_embeds[i][j])
+
+        input_shape = sound_embeds[0].shape
+        output_shape = [embed.shape for embed in image_embeds[0]]
+
+        print("input_shape: ", input_shape)
+        print("output_shape: ", output_shape)
 
         super(SoundToImageEncoder, self).__init__([
             tf.keras.layers.Input(shape=input_shape, dtype=tf.float32, name='input_sound_embedding'),
@@ -16,10 +24,13 @@ class SoundToImageEncoder(tf.keras.Sequential):
             tf.keras.layers.Dense(output_shape, name='output_image_embedding'),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Softmax()
-            ])
-        self.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+            ], *args, **kwargs)
 
-    def fit(self, x, y, *args, **kwargs):
+        self.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        self.__fit(sound_embeds, image_embeds, epochs=5)
+        self.save_weights('data/weights/sound_to_image_encoder.h5')
+
+    def __fit(self, x, y, *args, **kwargs):
         normalization = tf.keras.layers.Normalization(axis=None, mean=0, variance=1, name='normalization')
         y = normalization(y) 
         super(SoundToImageEncoder, self).fit(x, y, *args, **kwargs)
