@@ -1,11 +1,10 @@
-from typing import Tuple
+from typing import Tuple, Dict
 from utils.VideoUtils import preprocess_video
-from utils.OutputUtils import print_progress_bar
 from models.image_model import ImageModel
 from models.sound_model import SoundModel
 import tensorflow as tf
 
-class MultimodalFeatureExtractor:
+class MultimodalFeatureExtractor(tf.Module):
     '''
     A class that extracts features from a video and returns the embeddings for both image and audio content.
     It uses the ImageModel to extract the style from the frames and the SoundModel to extract the content from the audio.
@@ -14,26 +13,19 @@ class MultimodalFeatureExtractor:
         self.image_model = ImageModel()
         self.sound_model = SoundModel()
 
-    def __call__(self, video_url: str) -> Tuple[tf.data.Dataset, tf.data.Dataset]:
+    def __call__(self, video_url: str) -> Dict[str, list]:
         ''' Extracts features from a mp4 video and returns two lists containing the embeddings from images and frames.       '''
-        frames, sounds, _ = preprocess_video(video_url)
-        frame_embeds, sound_embeds = self.__compute_embeddings(frames, sounds)
-        return frame_embeds, sound_embeds
+        frame_urls, audio_urls, _ = preprocess_video(video_url)
+        return self.__compute_embeddings(frame_urls, audio_urls)
 
-    def __compute_embeddings(self, frame_urls: list, sound_urls: list) -> Tuple[list, list]:
+    def __compute_embeddings(self, frame_urls: list, audio_urls: list) -> Dict[str, list]:
         ''' 
         Computes embeddings for both image and audio content.
         returns: 
-            - frames_embeds: list of lists containing the style tensors for each frame
-            - sound_embeds: list of lists containing the style tensors for each sound
+            - video_embeds: list of lists containing the style tensors for each frame
+            - audio_embeds: list containing the content tensors for each audio segment
         '''
-        frames_embeds, sound_embeds = [], []
-        print('Feature extraction started.')
-        for i in range(len(frame_urls)):
-            frames_embeds.append(self.image_model(frame_urls[i]))
-            sound_embeds.append(self.sound_model(sound_urls[i]))
-            print_progress_bar(i+1, len(frame_urls), prefix="Computing embeddings:", length = 50, fill = '=')
-        return frames_embeds, sound_embeds
+        return {'video_embeds': self.image_model(frame_urls), 'audio_embeds': self.sound_model(audio_urls)}
 
     def predict_from_image(self, img: tf.Tensor) -> list:
         ''' Extracts features from a single image and returns the embeddings '''

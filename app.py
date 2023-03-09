@@ -23,7 +23,8 @@ if __name__ == "__main__":
         
     if stages[1]:
         try:
-            s2iEncoder, i2sEncoder = DataEncoding.encode_data(features)
+            # s2iEncoder, i2sEncoder = DataEncoding.encode_data(features)
+            i2sEncoder = DataEncoding.encode_data(features)
         except:
             print("Error in encoding data")
             traceback.print_exc()
