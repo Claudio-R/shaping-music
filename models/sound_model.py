@@ -11,7 +11,6 @@ class SoundModel(tf.Module):
     def __init__(self):
         self.model = hub.load('https://tfhub.dev/google/yamnet/1')
 
-    # @tf.function
     def __call__(self, wav_urls: list, verbose:bool=True) -> List[List[tf.Tensor]]:
         embeddings = []
         for i, wav_url in enumerate(wav_urls):
@@ -23,10 +22,7 @@ class SoundModel(tf.Module):
         return embeddings
     
     def __preprocess(self, wav_url:str) -> tf.Tensor:
-        # 1. Load the WAV file, resample it to 16 kHz, and convert it to mono
-        wav, sr = librosa.load(wav_url, sr=16000, mono=True)
-        # 2. Save the wav file for debugging
-        # sf.write('data/debug/test.wav', wav, sr)
+        wav, _ = librosa.load(wav_url, sr=16000, mono=True)
         return tf.convert_to_tensor(wav, dtype=tf.float32)
 
 if __name__ == '__main__':

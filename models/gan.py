@@ -7,6 +7,7 @@ from models.image_to_sound_encoder import ImageToSoundEncoder
 from models.generator import Generator
 from models.discriminator import Discriminator
 from utils.OutputUtils import print_progress_bar
+from utils.VideoUtils import create_clip
 import librosa, soundfile as sf
 
 class GenerativeAdversarialNetwork(tf.Module):
@@ -39,10 +40,15 @@ class GenerativeAdversarialNetwork(tf.Module):
         images_dir = 'data/gan/images'
         clip_dir = 'data/gan/videos'
 
+        # 0. Clear the directories
+        for dir in [audios_dir, images_dir]:
+            for file in os.listdir(dir):
+                os.remove(os.path.join(dir, file))
+
         # 1. Split audio into segments
         wav, sr = librosa.load(song_url, sr=44100)
-        sampling_period = 1 / fps 
         song_duration = librosa.get_duration(y=wav, sr=sr)
+        sampling_period = 1 / fps 
         intervals = [i for i in np.arange(0, song_duration, sampling_period)]
         for i, t_start in enumerate(intervals[:-1]):
             duration = intervals[i+1] - t_start
@@ -51,18 +57,17 @@ class GenerativeAdversarialNetwork(tf.Module):
 
         # 2. Generate images for each segment and save them
         audio_urls = [os.path.join(audios_dir, f"segment_{i}.wav") for i in range(len(intervals[:-1]))]
-        for i, song_url in enumerate(audio_urls):
-            input_wavs = self.generator.preprocess(song_url)
+        for i, audio_url in enumerate(audio_urls):
+            input_wavs = self.generator.preprocess(audio_url)
             generated_image = self.generator(input_wavs, training=False)
             generated_image = (generated_image[0, :, :, :] * 127.5 + 127.5).numpy().astype(np.uint8)
             PIL.Image.fromarray(generated_image).save(os.path.join(images_dir, f"image_{i}.jpg"))
             print_progress_bar(i+1, len(audio_urls), prefix='Generating frames:', length=50, fill='=')
 
         # 3. Create and save the clip
-        # create_clip(images_dir, song_url, fps, 'data/gan/videos')
+        create_clip(images_dir, song_url, 'data/gan/videos')
         return images_dir, clip_dir
     
-    # TODO: Convert this to a tf.function and fix bug in __load_image()
     def train(self, seed, audio_urls:list, epochs:int=2):
         print('\nTraining the Gan:')
         for epoch in range(epochs):

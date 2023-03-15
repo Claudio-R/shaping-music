@@ -13,10 +13,10 @@ class MultimodalFeatureExtractor(tf.Module):
         self.image_model = ImageModel()
         self.sound_model = SoundModel()
 
-    def __call__(self, video_url: str) -> Dict[str, list]:
+    def __call__(self, video_url: str, fps:int=2) -> Dict[str, list]:
         ''' Extracts features from a mp4 video and returns two lists containing the embeddings from images and frames.       '''
         print('\nExtracting features from video:')
-        frame_urls, audio_urls, _ = preprocess_video(video_url)
+        frame_urls, audio_urls, _ = preprocess_video(video_url, fps)
         return self.__compute_embeddings(frame_urls, audio_urls)
 
     def __compute_embeddings(self, frame_urls: list, audio_urls: list) -> Dict[str, list]:
