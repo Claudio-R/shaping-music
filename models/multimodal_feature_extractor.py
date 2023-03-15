@@ -1,4 +1,4 @@
-from typing import Tuple, Dict
+from typing import List, Dict
 from utils.VideoUtils import preprocess_video
 from models.image_model import ImageModel
 from models.sound_model import SoundModel
@@ -15,6 +15,7 @@ class MultimodalFeatureExtractor(tf.Module):
 
     def __call__(self, video_url: str) -> Dict[str, list]:
         ''' Extracts features from a mp4 video and returns two lists containing the embeddings from images and frames.       '''
+        print('\nExtracting features from video:')
         frame_urls, audio_urls, _ = preprocess_video(video_url)
         return self.__compute_embeddings(frame_urls, audio_urls)
 
@@ -27,13 +28,13 @@ class MultimodalFeatureExtractor(tf.Module):
         '''
         return {'video_embeds': self.image_model(frame_urls), 'audio_embeds': self.sound_model(audio_urls)}
 
-    def predict_from_image(self, img: tf.Tensor) -> list:
+    def predict_from_image(self, img: tf.Tensor) -> List[tf.Tensor]:
         ''' Extracts features from a single image and returns the embeddings '''
         return self.image_model.predict(img)
     
-    def predict_from_file(self, file_url:str) -> list:
+    def predict_from_file(self, file_url:str, verbose:bool=True) -> List[tf.Tensor]:
         ''' Extracts features from a single image or audio and returns the embeddings '''
         file_type = file_url.split('.')[-1]
-        if file_type == 'wav': return self.sound_model(file_url)
-        elif file_type == 'jpg': return self.image_model(file_url)
+        if file_type == 'wav': return self.sound_model([file_url], verbose=verbose)
+        elif file_type == 'jpg': return self.image_model([file_url])
         else: raise ValueError('Invalid file type. Must be either jpg or wav.')

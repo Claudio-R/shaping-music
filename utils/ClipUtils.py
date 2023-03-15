@@ -1,12 +1,14 @@
 import os
 from moviepy.editor import *
 
-def create_clip(frames_dir, audio_path, fps=2):
+def create_clip(frames_dir, song_url, clips_dir='data/debug/clips'):
     frames_files = [os.path.join(frames_dir, f) for f in os.listdir(frames_dir)]
     frames = sorted(frames_files, key=lambda x: int(''.join(filter(str.isdigit, x))))
 
-    audio_clip = AudioFileClip(audio_path)
-    frame_duration = 1 / fps
+    audio_clip = AudioFileClip(song_url)
+    song_duration = audio_clip.duration
+    frame_duration = song_duration / len(frames)
+    fps = 1 / frame_duration
 
     clip = concatenate([ImageClip(f).set_duration(frame_duration) for f in frames], method="compose")
 
@@ -17,8 +19,8 @@ def create_clip(frames_dir, audio_path, fps=2):
 
     clip = clip.set_audio(audio_clip)
 
-    clips_count = len(os.listdir('data/generated_clips'))
-    clip.write_videofile(f"data/generated_clips/clip_{clips_count}.mp4", fps=fps)
+    clips_count = len(os.listdir(clips_dir))
+    clip.write_videofile(os.path.join(clips_dir, 'generated_clip_{}.mp4'.format(clips_count)), fps=fps)
 
 def retrieve_frames(path_dir):
     frames_list = []
@@ -26,3 +28,8 @@ def retrieve_frames(path_dir):
         path = os.path.join(path_dir, filename)
         frames_list.append(path)
     return frames_list
+
+if __name__ == "__main__":
+    frames_dir = 'data/gan/images'
+    audio_path = 'data/test_video/test1.wav'
+    create_clip(frames_dir, audio_path)

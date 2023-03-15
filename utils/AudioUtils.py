@@ -1,11 +1,13 @@
 from pydub import AudioSegment
 import os
 
-def split_audio(audio_file, dir, fps):
-    audio = AudioSegment.from_wav(audio_file)
+def split_audio(audio_url:str, fps:int):
+    audio = AudioSegment.from_wav(audio_url)
     duration = audio.duration_seconds
     sampling_period = 1 / fps
     num_segments = int(duration / sampling_period)
+
+    # create a temporary directory to store the audio segments
 
     for i in range(num_segments):
         start = i * sampling_period * 1000

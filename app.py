@@ -5,8 +5,8 @@ from src import FeaturesExtraction, DataEncoding, Generation, ClipGeneration
 stages = [
     True,
     True,
-    False,
-    False
+    True,
+    True
 ]
 
 if __name__ == "__main__":    
@@ -18,33 +18,32 @@ if __name__ == "__main__":
         try:
             features = FeaturesExtraction.extract_features(file_name)
         except:
-            print("Error in extracting features from the video")
+            print("\n### Error in extracting features from the video ###\n")
             traceback.print_exc()
         
     if stages[1]:
         try:
-            # s2iEncoder, i2sEncoder = DataEncoding.encode_data(features)
             i2sEncoder = DataEncoding.encode_data(features)
         except:
-            print("Error in encoding data")
+            print("\n### Error in encoding data ###\n")
             traceback.print_exc()
     
     if stages[2]:
         try:
             file_names = []
-            for filename in os.listdir('data/test_samples'):
-                path = os.path.join('data/test_samples', filename)
+            for filename in os.listdir('data/mfe/audios'):
+                path = os.path.join('data/mfe/audios', filename)
                 file_names.append(path)
             file_names.sort()
-            gan = Generation.train_gan(file_names)
+            video_embeds_shapes, audio_embeds_shapes = i2sEncoder.get_shapes()
+            print(video_embeds_shapes, audio_embeds_shapes)
+            gan = Generation.train_gan(file_names, video_embeds_shapes, audio_embeds_shapes)
+            if stages[3]:  
+                try:
+                    ClipGeneration.create_videoclip(gan, 'data/test_video/test3.wav', 2)
+                except:
+                    print("\n### Error in creating the clip ###\n")
+                    traceback.print_exc()
         except:
-            print("Error in generating new images")
-            traceback.print_exc()
-
-    if stages[3]:
-        try:
-            # ClipGeneration.create_clip_from_url(file_name, 'data/test_frames', 'data/test_samples')
-            ClipGeneration.create_videoclip('data/test_audio/test.wav', 'data/test_samples')
-        except:
-            print("Error in creating the clip")
+            print("\n### Error in generating new images ###\n")
             traceback.print_exc()
