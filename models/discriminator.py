@@ -75,8 +75,8 @@ class Discriminator(tf.Module):
         return audio_embeds
     
     def save_weights(self, path:str):
-        if not os.path.exists(path=path):
-            os.makedirs(path)
+        weights_dir = 'data/weights'
+        if not os.path.exists(weights_dir): os.makedirs(weights_dir)
         self.model.save_weights(path)
 
 if __name__ == "__main__":

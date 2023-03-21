@@ -1,5 +1,5 @@
 import tensorflow as tf
-import numpy as np
+import os
 
 class SoundToImageEncoder(tf.keras.Sequential):
     def __init__(self, data:dict, *args, **kwargs):
@@ -28,6 +28,10 @@ class SoundToImageEncoder(tf.keras.Sequential):
 
         self.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
         self.__fit(sound_embeds, image_embeds, epochs=5)
+
+        weights_dir = 'data/weights'
+        if not os.path.exists(weights_dir): os.makedirs(weights_dir)
+
         self.save_weights('data/weights/sound_to_image_encoder.h5')
 
     def __fit(self, x, y, *args, **kwargs):

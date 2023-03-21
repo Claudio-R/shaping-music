@@ -17,6 +17,12 @@ class GenerativeAdversarialNetwork(tf.Module):
         self.mfe = MultimodalFeatureExtractor()
 
         self.i2sEncoder = ImageToSoundEncoder(video_embeds_shapes, audio_embeds_shapes)
+        
+        weights_dir = 'data/weights'
+        if not os.path.exists(weights_dir): os.makedirs(weights_dir)
+        debug_dir = 'data/debug'
+        if not os.path.exists(debug_dir): os.makedirs(debug_dir)
+
         try:
             self.i2sEncoder.model.load_weights('data/weights/image_to_sound_encoder.h5')
         except:
@@ -88,7 +94,8 @@ class GenerativeAdversarialNetwork(tf.Module):
             
             img = self.generator(seed, training=False)
             img = (img[0, :, :, :] * 127.5 + 127.5).numpy().astype(np.uint8)
-            PIL.Image.fromarray(img).save('data/debug/generated_training_images/training_image_at_epoch_{:04d}.jpg'.format(epoch))
+            
+            PIL.Image.fromarray(img).save('data/debug/training_image_at_epoch_{:04d}.jpg'.format(epoch))
                 
         self.generator.save_weights('data/weights/gan_generator.h5')
         self.discriminator.save_weights('data/weights/gan_discriminator.h5')

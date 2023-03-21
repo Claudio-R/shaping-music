@@ -16,7 +16,9 @@ class ImageToSoundEncoder(tf.Module):
         self.model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
 
         debug_dir = 'data/debug'
+        weights_dir = 'data/weights'
         if not os.path.exists(debug_dir): os.makedirs(debug_dir)
+        if not os.path.exists(weights_dir): os.makedirs(weights_dir)
 
         tf.keras.utils.plot_model(self.model, to_file='data/debug/i2sEncoder.png', show_shapes=True, show_layer_names=True)
 
