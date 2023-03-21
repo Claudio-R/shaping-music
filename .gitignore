@@ -1,8 +1,8 @@
 __pycache__/
 
 # audio
-# *.mp4
-# *.wav
+*.mp4
+*.wav
 
 # image
 *.png

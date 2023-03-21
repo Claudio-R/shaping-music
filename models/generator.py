@@ -10,7 +10,6 @@ SIZE = 64 # this should be 512 for the final model
 class Generator(tf.keras.Sequential):
     def __init__(self, input_dim=100, *args, **kwargs):
  
-      
         self.input_dim = input_dim
             
         super(Generator, self).__init__(*args, **kwargs)

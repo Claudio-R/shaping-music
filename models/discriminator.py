@@ -1,6 +1,6 @@
 import tensorflow as tf
 from typing import Dict
-
+import os, sys
 class Discriminator(tf.Module):
     def __init__(self, input_shapes:list):
         '''
@@ -71,10 +71,12 @@ class Discriminator(tf.Module):
         audio_embeds = [ [ audio_embeds[i][j] for i in range(len(audio_embeds)) ] for j in range(len(audio_embeds[0])) ]
         audio_embeds = { f'input_audio_embedding_{i}': audio_embeds[i] for i in range(len(audio_embeds)) }
         audio_embeds = { k: tf.convert_to_tensor(v) for k, v in audio_embeds.items() }
-        # print('Audio:', audio_embeds.keys())
+
         return audio_embeds
     
     def save_weights(self, path:str):
+        if not os.path.exists(path=path):
+            os.makedirs(path)
         self.model.save_weights(path)
 
 if __name__ == "__main__":

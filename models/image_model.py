@@ -1,3 +1,4 @@
+import os
 from typing import List
 import tensorflow as tf
 from utils.OutputUtils import print_progress_bar
@@ -20,6 +21,10 @@ class ImageModel(tf.Module):
             )
 
         self.model.compile(optimizer='adam', loss='categorical_crossentropy')
+        
+        debug_dir = 'data/debug'
+        if not os.path.exists(debug_dir): os.makedirs(debug_dir)
+        
         tf.keras.utils.plot_model(self.model, to_file='data/debug/imageModel.png', show_shapes=True, show_layer_names=True)
         
     # @tf.function
@@ -27,6 +32,7 @@ class ImageModel(tf.Module):
         ''' Extracts the style from a list of images '''
         embeddings = []
         for i, img_url in enumerate(img_urls):
+            if not os.path.exists(img_url): continue
             img = self.__preprocess(img_url)
             outputs = self.model(img)
             if type(outputs) != list: outputs = [outputs]

@@ -3,6 +3,7 @@ import tensorflow_hub as hub
 import librosa
 from typing import List
 from utils.OutputUtils import print_progress_bar
+import os
 
 class SoundModel(tf.Module):
     '''
@@ -14,6 +15,7 @@ class SoundModel(tf.Module):
     def __call__(self, wav_urls: list, verbose:bool=True) -> List[List[tf.Tensor]]:
         embeddings = []
         for i, wav_url in enumerate(wav_urls):
+            if not os.path.exists(wav_url): continue
             waveform = self.__preprocess(wav_url)
             _, embeds, _ = self.model(waveform)
             if type(embeds) != list: embeds = [embeds]

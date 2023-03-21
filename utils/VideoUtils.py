@@ -9,19 +9,26 @@ def preprocess_video(video_url:str, desired_fps:int=2, output_ext="wav") -> tupl
     '''Extracts frames from video and audio from video and saves them to disk'''
 
     # 0. Get filename
+    if not os.path.exists(video_url): raise Exception("Video was not found!")
     pathname, _ = os.path.splitext(video_url)
     filename = pathname.split('/')[-1]
 
-    # 1. Clear directories
+    # 1. Clear or create directories
     images_dir = 'data/mfe/images'
     audios_dir = 'data/mfe/audios'
+    videos_dir = 'data/mfe/video'
+
+    if not os.path.exists(images_dir): os.makedirs(images_dir)
+    if not os.path.exists(audios_dir): os.makedirs(audios_dir)
+    if not os.path.exists(videos_dir): os.makedirs(videos_dir)
+    
     [os.remove(os.path.join(images_dir, f)) for f in os.listdir(images_dir)] if os.path.exists(images_dir) else os.mkdir(images_dir)
     [os.remove(os.path.join(audios_dir, f)) for f in os.listdir(audios_dir)] if os.path.exists(audios_dir) else os.mkdir(audios_dir)
         
     # 2. Extract audio content
     videoclip = VideoFileClip(video_url)
     audioClip = videoclip.audio
-    audioFile = f"data/mfe/video/{filename}.{output_ext}"
+    audioFile = f"{videos_dir}/{filename}.{output_ext}"
     audioClip.write_audiofile(audioFile, fps=44100, nbytes=2, buffersize=200000)
     audioClip.close()
    
@@ -54,6 +61,10 @@ def preprocess_video(video_url:str, desired_fps:int=2, output_ext="wav") -> tupl
 def create_clip(frames_dir, song_url, clips_dir='data/debug/clips'):
 
     print('''Creating clip from frames in {} and audio in {}'''.format(frames_dir, song_url))
+
+    if not os.path.exists(path=frames_dir): os.makedirs(frames_dir)
+    if not os.path.exists(path=clips_dir): os.makedirs(clips_dir)
+    if not os.path.exists(path=song_url): raise Exception("The song was not found!")
 
     frames_files = [os.path.join(frames_dir, f) for f in os.listdir(frames_dir)]
     frames = sorted(frames_files, key=lambda x: int(''.join(filter(str.isdigit, x))))

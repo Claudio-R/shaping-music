@@ -1,5 +1,6 @@
 from typing import Tuple, List
 import tensorflow as tf
+import os
 class ImageToSoundEncoder(tf.Module):
     def __init__ (self, input_shapes:list, output_shapes:list):
         self.input_shapes = tf.reduce_prod(input_shapes, axis=1)
@@ -13,6 +14,9 @@ class ImageToSoundEncoder(tf.Module):
 
         self.model = tf.keras.Model(inputs=input_layers, outputs=output_layers)
         self.model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
+
+        debug_dir = 'data/debug'
+        if not os.path.exists(debug_dir): os.makedirs(debug_dir)
 
         tf.keras.utils.plot_model(self.model, to_file='data/debug/i2sEncoder.png', show_shapes=True, show_layer_names=True)
 

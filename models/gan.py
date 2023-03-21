@@ -17,7 +17,10 @@ class GenerativeAdversarialNetwork(tf.Module):
         self.mfe = MultimodalFeatureExtractor()
 
         self.i2sEncoder = ImageToSoundEncoder(video_embeds_shapes, audio_embeds_shapes)
-        self.i2sEncoder.model.load_weights('data/weights/image_to_sound_encoder.h5')
+        try:
+            self.i2sEncoder.model.load_weights('data/weights/image_to_sound_encoder.h5')
+        except:
+            print("\n### Error in loading i2sEncoder weights ###\n")
 
         self.generator_optimizer = tf.keras.optimizers.Adam(1e-4)
         self.discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
@@ -39,6 +42,10 @@ class GenerativeAdversarialNetwork(tf.Module):
         audios_dir = 'data/gan/audios'
         images_dir = 'data/gan/images'
         clip_dir = 'data/gan/videos'
+
+        if not os.path.exists(audios_dir): os.makedirs(audios_dir)
+        if not os.path.exists(images_dir): os.makedirs(images_dir)
+        if not os.path.exists(clip_dir): os.makedirs(clip_dir)
 
         # 0. Clear the directories
         for dir in [audios_dir, images_dir]:
@@ -72,6 +79,7 @@ class GenerativeAdversarialNetwork(tf.Module):
         print('\nTraining the Gan:')
         for epoch in range(epochs):
             for i, audio_url in enumerate(audio_urls):
+                if not os.path.exists(audio_url): continue
                 self.__training_step(audio_url)
                 print_progress_bar(i+1, len(audio_urls), prefix='Epoch: {}/{}'.format(epoch+1, epochs), length=50, fill='=')
                 
