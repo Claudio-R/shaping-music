@@ -11,8 +11,8 @@ from utils.VideoUtils import create_clip
 import librosa, soundfile as sf
 
 class GenerativeAdversarialNetwork(tf.Module):
-    def __init__(self, video_embeds_shapes:list, audio_embeds_shapes:list):
-        self.generator = Generator()
+    def __init__(self, video_embeds_shapes:list, audio_embeds_shapes:list, frame_size:int=256):
+        self.generator = Generator(SIZE=frame_size)
         self.discriminator = Discriminator(audio_embeds_shapes)
         self.mfe = MultimodalFeatureExtractor()
 
@@ -73,7 +73,9 @@ class GenerativeAdversarialNetwork(tf.Module):
         for i, audio_url in enumerate(audio_urls):
             input_wavs = self.generator.preprocess(audio_url)
             generated_image = self.generator(input_wavs, training=False)
-            generated_image = (generated_image[0, :, :, :] * 127.5 + 127.5).numpy().astype(np.uint8)
+            generated_image = generated_image[0, :, :, :]
+            generated_image = tf.image.resize(generated_image, (512, 512), method='nearest')
+            generated_image = (generated_image * 255).numpy().astype(np.uint8)
             PIL.Image.fromarray(generated_image).save(os.path.join(images_dir, f"image_{i}.jpg"))
             print_progress_bar(i+1, len(audio_urls), prefix='Generating frames:', length=50, fill='=')
 

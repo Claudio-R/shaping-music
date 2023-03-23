@@ -9,8 +9,8 @@ class MultimodalFeatureExtractor(tf.Module):
     A class that extracts features from a video and returns the embeddings for both image and audio content.
     It uses the ImageModel to extract the style from the frames and the SoundModel to extract the content from the audio.
     '''
-    def __init__(self):       
-        self.image_model = ImageModel()
+    def __init__(self, size:int=64):       
+        self.image_model = ImageModel(size)
         self.sound_model = SoundModel()
 
     def __call__(self, video_url: str, fps:int=2) -> Dict[str, list]:

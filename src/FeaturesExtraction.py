@@ -2,11 +2,11 @@ import traceback
 from typing import Dict
 from models.multimodal_feature_extractor import MultimodalFeatureExtractor
 
-def extract_features(video_url:str, fps:int=2) -> Dict[str, list]:
+def extract_features(video_url:str, fps:int=2, frame_size:int=64) -> Dict[str, list]:
     '''
     Extracts features from a mp4 video and returns two lists containing the embeddings from images and frames.
     '''
-    mfe = MultimodalFeatureExtractor()
+    mfe = MultimodalFeatureExtractor(size=frame_size)
     try: 
         embeds = mfe(video_url, fps)
         video_embeds = embeds['video_embeds']

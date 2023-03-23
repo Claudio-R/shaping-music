@@ -13,7 +13,7 @@ class ImageToSoundEncoder(tf.Module):
         output_layers = [tf.keras.layers.Dense(shape, activation='relu', name=f'output_sound_embedding_{i}')(concat_layer) for i, shape in enumerate(self.output_shapes)]
 
         self.model = tf.keras.Model(inputs=input_layers, outputs=output_layers)
-        self.model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
+        self.model.compile(optimizer='adam', loss='mse')
 
         debug_dir = 'data/debug'
         weights_dir = 'data/weights'

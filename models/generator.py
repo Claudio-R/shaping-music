@@ -8,7 +8,7 @@ import scipy.signal as signal
 SIZE = 64 # this should be 512 for the final model
 
 class Generator(tf.keras.Sequential):
-    def __init__(self, input_dim=100, *args, **kwargs):
+    def __init__(self, input_dim=100, SIZE=64, *args, **kwargs):
  
         self.input_dim = input_dim
             
