@@ -1,18 +1,15 @@
 __pycache__/
 
 # audio
-data/*/*.mp4
-data/*/*.wav
+*.mp4
+*.wav
 
 # image
-data/*/*.png
-data/*/*.jpg
+*.png
+*.jpg
 
 # weights
-data/*/*.h5
-
-# embeddings
-data/embeddings/
+*.h5
 
 # checkpoints
 data/checkpoints/

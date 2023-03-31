@@ -5,13 +5,13 @@ import numpy as np
 import scipy.io.wavfile as wavfile
 import scipy.signal as signal
 
-SIZE = 56 # this should be 512 for the final model
+SIZE = 64 # this should be 512 for the final model
 
 class Generator(tf.keras.Sequential):
-    def __init__(self, input_dim=100, *args, **kwargs):
-
+    def __init__(self, input_dim=100, SIZE=64, *args, **kwargs):
+ 
         self.input_dim = input_dim
-
+            
         super(Generator, self).__init__(*args, **kwargs)
         self.add(tf.keras.layers.Dense(SIZE//4*SIZE//4*256, use_bias=False, input_shape=(self.input_dim,)))
         self.add(tf.keras.layers.BatchNormalization())
@@ -33,11 +33,11 @@ class Generator(tf.keras.Sequential):
 
         assert self.output_shape == (None, SIZE, SIZE, 3)
     
-    def __call__(self, input_wavs:tf.Tensor, *args: Any, **kwds: Any) -> Any:
-        return super().__call__(input_wavs, *args, **kwds)
+    def __call__(self, input_wavs:tf.Tensor, *args, **kwargs) -> Any:
+        return super().__call__(input_wavs, *args, **kwargs)
 
     def generator_loss(self, fake_output):
-        cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+        cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=False)
         return cross_entropy(tf.ones_like(fake_output), fake_output)
     
     def preprocess(self, wav_url:str) -> tf.Tensor:
@@ -57,7 +57,6 @@ class Generator(tf.keras.Sequential):
         input_wavs = tf.reshape(waveform[:num_batches*self.input_dim], (num_batches, self.input_dim))
         return input_wavs
     
-
 
 if __name__ == "__main__":
     generator = Generator()

@@ -1,22 +1,16 @@
 import tensorflow as tf
-import matplotlib.pyplot as plt
+import numpy as np
+import PIL
+import numpy as np
 
-def load_image(img_url:str):
-    max_dim = 512
+def upsample_image_url(img_url:str, size:int):
     img = tf.io.read_file(img_url)
     img = tf.image.decode_image(img, channels=3)
     img = tf.image.convert_image_dtype(img, tf.float32)
-    shape = tf.cast(tf.shape(img)[:-1], tf.float32)
-    long_dim = max(shape)
-    scale = max_dim / long_dim
-    new_shape = tf.cast(shape * scale, tf.int32)
-    img = tf.image.resize(img, new_shape)
-    img = img[tf.newaxis, :]
+    img = tf.image.resize(img, (size, size), method='nearest')
     return img
 
-def imshow(image, title=None):
-  if len(image.shape) > 3:
-    image = tf.squeeze(image, axis=0)
-  plt.imshow(image)
-  if title:
-    plt.title(title)
+if __name__ == "__main__":
+    name = "training_image_at_epoch_0003"
+    image = upsample_image_url(f"data/debug/{name}.jpg", 512)
+    PIL.Image.fromarray((image * 255).numpy().astype(np.uint8)).save(f"data/debug/{name}_up.jpg")
