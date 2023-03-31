@@ -6,7 +6,7 @@ from src import FeaturesExtraction, DataEncoding, Generation, ClipGeneration
 if __name__ == "__main__":   
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--file', type=str, default='data/test_video/test2.mp4')
+    parser.add_argument('--file', type=str, default='data/test_video/test3.mp4')
     parser.add_argument('--fps', type=int, default=5)
     parser.add_argument('--size', type=int, default=32)
     parser.add_argument('--stages', type=int, default=4)
@@ -44,7 +44,7 @@ if __name__ == "__main__":
             gan = Generation.train_gan(file_names, video_embeds_shapes, audio_embeds_shapes, SIZE, EPOCHS)
             if STAGES == 4:
                 try:
-                    ClipGeneration.create_videoclip(gan, 'data/test_video/test2.wav', FPS)
+                    ClipGeneration.create_videoclip(gan, 'data/test_video/test3.wav', FPS)
                 except:
                     print("\n### Error in creating the clip ###\n")
                     traceback.print_exc()
