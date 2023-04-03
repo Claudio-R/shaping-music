@@ -22,6 +22,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         super(ConvolutionalAutoencoder, self).__init__()
         self.style_extractor = self.define_style_extractor()
         self.encoder = self.define_encoder()
+        print(self.encoder.summary())
         self.decoder = self.define_decoder()
         self.img_SIZE = 28
         
@@ -38,7 +39,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
 
     def define_style_extractor(self):
         vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
-        styles = ['block1_conv1']
+        styles = ['block1_conv1', 'block2_conv1', 'block3_conv1']#, 'block4_conv1', 'block5_conv1']
         styles_layers = [vgg19.get_layer(style).output for style in styles]
         return tf.keras.Model(inputs=vgg19.input, outputs=styles_layers, name='style_extractor', trainable=False)
 
@@ -46,13 +47,16 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         '''
         multiple inputs but single output
         '''
-        self.img_shapes = [self.style_extractor.output_shape]
+        self.img_shapes = self.style_extractor.output_shape
         self.latent_dim = 100
-        input_layers = [tf.keras.layers.Input(shape=(shape[-3], shape[-2], shape[-1]), dtype=tf.float32, name=f'image_embedding_{i}') for i, shape in enumerate(self.img_shapes)]
+
+        input_layers = [tf.keras.layers.Input(shape=(img_shape[1], img_shape[2], img_shape[3]), dtype=tf.float32, name=f'input_{i}') for i, img_shape in enumerate(self.img_shapes)]
         conv2d_layers_1 = [tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2)(input_layer) for input_layer in input_layers]
         conv2d_layers_2 = [tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2)(conv2d_layer_1) for conv2d_layer_1 in conv2d_layers_1]
         dense_layers = [tf.keras.layers.Dense(self.latent_dim, activation='relu')(conv2d_layer_2) for conv2d_layer_2 in conv2d_layers_2]
-        concat_layer = tf.keras.layers.Concatenate()(dense_layers)
+        first_layer_shape = tf.shape(dense_layers[0])
+        resizing_layers = [tf.image.resize(dense_layer, (first_layer_shape[1], first_layer_shape[2])) for dense_layer in dense_layers]
+        concat_layer = tf.keras.layers.Concatenate(axis=-1)(resizing_layers)
         output_layer = tf.keras.layers.Dense(self.latent_dim, activation='relu')(concat_layer)
         return tf.keras.Model(inputs=input_layers, outputs=output_layer, name='encoder')
 
