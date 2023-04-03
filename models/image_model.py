@@ -11,7 +11,7 @@ class ImageModel(tf.Module):
         self.SIZE = tf.constant(SIZE, dtype=tf.int32)
         vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
         # outputs = ['block1_conv1', 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
-        outputs = ['block1_conv1']
+        outputs = ['block1_conv1', 'block2_conv1']
         if type(outputs) != list: outputs = [outputs]
 
         self.model = tf.keras.Model(

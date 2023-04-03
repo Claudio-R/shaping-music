@@ -58,7 +58,20 @@ class ImageToSoundEncoder(tf.Module):
     @staticmethod
     def __prepare_input(video_embeds:list, audio_embeds:list) -> Tuple[dict, dict]:
         '''
-        Flatten the video and audio embeddings, than convert them to dictionaries of tensors
+        Flatten the video and audio embeddings, then convert them to dictionaries of tensors
+        Example:
+            (
+                {
+                    'image_embedding_0': [tf.Tensor, tf.Tensor, ...],
+                    'image_embedding_1': [tf.Tensor, tf.Tensor, ...],
+                    ...
+                },
+                {
+                    'sound_embedding_0': [tf.Tensor, tf.Tensor, ...],
+                    'sound_embedding_1': [tf.Tensor, tf.Tensor, ...],
+                    ...
+                }
+            )    
         '''
         if video_embeds:
             for i in range(len(video_embeds)):
