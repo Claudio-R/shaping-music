@@ -48,7 +48,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         multiple inputs but single output
         '''
         self.img_shapes = self.style_extractor.output_shape
-        self.latent_dim = 100
+        self.latent_dim = 1024
 
         input_layers = [tf.keras.layers.Input(shape=(img_shape[1], img_shape[2], img_shape[3]), dtype=tf.float32, name=f'input_{i}') for i, img_shape in enumerate(self.img_shapes)]
         conv2d_layers_1 = [tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2)(input_layer) for input_layer in input_layers]
