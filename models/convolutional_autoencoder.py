@@ -101,7 +101,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         '''
         multiple inputs but single output model.
         - input: the style embeddings (None, SIZE, SIZE, CHANNELS)
-        - output: the encoded image (None, None, 1024)
+        - output: the encoded image (None, 1024)
         '''
         self.img_shapes = self.style_extractor.output_shape
         if type(self.img_shapes) == tuple:
@@ -120,9 +120,10 @@ class ConvolutionalAutoencoder(tf.keras.Model):
     def define_decoder(self) -> tf.keras.Model:
         '''
         single input, single output model.
-        - input: the encoded image (None, None, 1024)
-        - output: the reconstructed image (None, None, 3)
+        - input: the encoded image (None, 1024)
+        - output: the reconstructed image (None, SIZE, SIZE, 3)
         '''
+        self.NUM_CHANNELS = 3
         input_layer = tf.keras.layers.Input(shape=(self.latent_dim), dtype=tf.float32, name='latent_input')
         dense_layer_1 = tf.keras.layers.Dense(self.latent_dim, activation='relu')(input_layer)
         expand_layer = tf.keras.layers.Lambda(lambda x: tf.expand_dims(tf.expand_dims(x, axis=1), axis=1))(dense_layer_1) # (None, 1, 1, 1024)
@@ -130,14 +131,15 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         conv2dTranspose_layer_2 = tf.keras.layers.Conv2DTranspose(16, kernel_size=3, strides=2, activation='relu', padding='same')(conv2dTranspose_layer_1) # (None, 16, 16, 16)
         dense_layer_2 = tf.keras.layers.Dense(self.img_SIZE * self.img_SIZE, activation='relu')(conv2dTranspose_layer_2) # (None, 16, 16, 784)
         pooling_layer = tf.keras.layers.GlobalAveragePooling2D()(dense_layer_2) # (None, 784)
-        output_layer = tf.keras.layers.Reshape((self.img_SIZE, self.img_SIZE, 1))(pooling_layer) # (None, 28, 28, 1)
+        reshape_layer = tf.keras.layers.Reshape((self.img_SIZE, self.img_SIZE, 1))(pooling_layer) # (None, 28, 28, 1)
+        dense_layer_3 = tf.keras.layers.Dense(self.NUM_CHANNELS, activation='relu')(reshape_layer) # (None, 28, 28, 3)
 
-        return tf.keras.Model(inputs=input_layer, outputs=output_layer, name='decoder')
+        return tf.keras.Model(inputs=input_layer, outputs=dense_layer_3, name='decoder')
     
     def preprocess_img(self, img_url:tf.Tensor) -> tf.Tensor:
         img_url = img_url.numpy().decode('utf-8')
         img = tf.keras.preprocessing.image.load_img(img_url, target_size=(self.img_SIZE, self.img_SIZE))
-        img = tf.keras.preprocessing.image.img_to_array(img)
+        img = tf.keras.preprocessing.image.img_to_array(img, dtype=np.uint8)
         img = tf.keras.applications.vgg19.preprocess_input(img)
         return img
 
@@ -242,46 +244,49 @@ if __name__ == '__main__':
     autoencoder = ConvolutionalAutoencoder()
     autoencoder.compile(optimizer='adam', loss=autoencoder.custom_loss)
     dataset = autoencoder.parse_videos(training_videos, FPS=60, BATCH_SIZE=32)
-    autoencoder.train(dataset)
-
-    # (x_train, _), (x_test, _) = tf.keras.datasets.mnist.load_data()
-    # x_train = x_train.astype('float32') / 255.
-    # x_test = x_test.astype('float32') / 255.
-    # x_train = x_train[..., tf.newaxis]
-    # x_test = x_test[..., tf.newaxis]
-
-    # autoencoder = ConvolutionalAutoencoder()
-    # autoencoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
-    # autoencoder.fit(x_train, x_train,
-    #                 epochs=1,
-    #                 shuffle=True,
-    #                 validation_data=(x_test, x_test))
-    
-    # # plot the models
-    # tf.keras.utils.plot_model(autoencoder.encoder, to_file='convolutional_autoencoder_encoder.png', show_shapes=True, show_layer_names=True)
-    # tf.keras.utils.plot_model(autoencoder.decoder, to_file='convolutional_autoencoder_decoder.png', show_shapes=True, show_layer_names=True)
-    # tf.keras.utils.plot_model(autoencoder, to_file='convolutional_autoencoder.png', show_shapes=True, show_layer_names=True)
+    # autoencoder.train(dataset, epochs=1)
 
     n = 10
-    # x_test = x_test[:n]
     dataset = dataset.take(n)
-    
     import matplotlib.pyplot as plt
 
     plt.figure(figsize=(20, 4))
-    for i in range(n):
-        # display original
-        ax = plt.subplot(2, n, i + 1)
-        plt.imshow(dataset[i]['img_urls'].numpy().reshape(28, 28))
-        plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-        # display reconstruction
-        ax = plt.subplot(2, n, i + 1 + n)
-        plt.imshow(autoencoder(dataset)[i].numpy().reshape(28, 28))
-        plt.gray()
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-   
+    for i, batch in enumerate(dataset):
+        try: 
+            # display original
+            ax = plt.subplot(2, n, i + 1)
+            img_url = batch['img_urls'][0]
+            img = autoencoder.preprocess_img(img_url)
+
+            # must be normalized to [0, 1] for imshow
+            img = (img - img.min()) / (img.max() - img.min())
+
+            plt.imshow(img)
+            plt.gray()
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+            # display reconstruction
+            
+            ax = plt.subplot(2, n, i + 1 + n)
+            img = tf.expand_dims(img, axis=0)
+            embeds = autoencoder.style_extractor(img)
+            styles = autoencoder.get_style(embeds)
+            encoded_img = autoencoder.encoder(styles)
+            decoded_img = autoencoder.decoder(encoded_img)
+            decoded_img = tf.squeeze(decoded_img, axis=0)
+
+            # must be normalized to [0, 1] for imshow
+            # decoded_img = (decoded_img - tf.reduce_min(decoded_img)) / (tf.reduce_max(decoded_img) - tf.reduce_min(decoded_img))
+
+            plt.imshow(decoded_img.numpy())
+            plt.gray()
+            ax.get_xaxis().set_visible(False)
+            ax.get_yaxis().set_visible(False)
+
+        except Exception as e:
+            print(e)
+            continue
+
     plt.savefig('data/debug/convolutional_autoencoder.png')
+    print('Done!')
  
