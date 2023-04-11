@@ -1,5 +1,3 @@
-#TODO: define a custom loss function and a custom training loop to take into account the encoding and decoding losses
-
 import tensorflow as tf
 import tensorflow_hub as hub
 import os, typing
@@ -8,7 +6,6 @@ import imageio, librosa, soundfile as sf, moviepy.editor as mp
 import tqdm
 
 class ConvolutionalAutoencoder(tf.keras.Model):
-
     def __init__(self):
         super(ConvolutionalAutoencoder, self).__init__()
         self.img_SIZE = 28
@@ -107,18 +104,18 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         - output: the encoded image (None, None, 1024)
         '''
         self.img_shapes = self.style_extractor.output_shape
-        self.latent_dim = 1024 # yamnet embedding size plus the batch size: (None, 1024)
+        if type(self.img_shapes) == tuple:
+            self.img_shapes = [self.img_shapes]
+        self.latent_dim = 1024
 
         input_layers = [tf.keras.layers.Input(shape=(img_shape[1], img_shape[2], img_shape[3]), dtype=tf.float32, name=f'input_{i}') for i, img_shape in enumerate(self.img_shapes)]
         conv2d_layers_1 = [tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2)(input_layer) for input_layer in input_layers]
         conv2d_layers_2 = [tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2)(conv2d_layer_1) for conv2d_layer_1 in conv2d_layers_1]
-        dense_layers = [tf.keras.layers.Dense(self.latent_dim, activation='relu')(conv2d_layer_2) for conv2d_layer_2 in conv2d_layers_2]
-        pooling_layers = [tf.keras.layers.GlobalAveragePooling2D()(dense_layer) for dense_layer in dense_layers]
-        concat_layer = tf.keras.layers.Concatenate(axis=-1)(pooling_layers)
-        dense_layer = tf.keras.layers.Dense(self.latent_dim, activation='relu')(concat_layer)
-        output_layer = tf.keras.layers.Reshape((1, self.latent_dim))(dense_layer)
-
-        return tf.keras.Model(inputs=input_layers, outputs=output_layer, name='encoder')
+        dense_layers_1 = [tf.keras.layers.Dense(self.latent_dim, activation='relu')(conv2d_layer_2) for conv2d_layer_2 in conv2d_layers_2]
+        pooling_layers = [tf.keras.layers.GlobalAveragePooling2D()(dense_layer) for dense_layer in dense_layers_1]
+        concatenate_layer = tf.keras.layers.Concatenate(axis=-1)(pooling_layers)
+        dense_layer_2 = tf.keras.layers.Dense(self.latent_dim, activation='relu')(concatenate_layer)
+        return tf.keras.Model(inputs=input_layers, outputs=dense_layer_2, name='encoder')
 
     def define_decoder(self) -> tf.keras.Model:
         '''
@@ -126,14 +123,16 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         - input: the encoded image (None, None, 1024)
         - output: the reconstructed image (None, None, 3)
         '''
-        input_layer = tf.keras.layers.Input(shape=(1, self.latent_dim), dtype=tf.float32, name='latent_input')
-        resize_layer = tf.keras.layers.Reshape((1, 1, self.latent_dim))(input_layer)
-        conv2dTranspose_layer_1 = tf.keras.layers.Conv2DTranspose(8, kernel_size=3, strides=7, activation='relu', padding='same')(resize_layer)
-        conv2dTranspose_layer_2 = tf.keras.layers.Conv2DTranspose(8, kernel_size=3, strides=2, activation='relu', padding='same')(conv2dTranspose_layer_1)
-        conv2dTranspose_layer_3 = tf.keras.layers.Conv2DTranspose(16, kernel_size=3, strides=2, activation='relu', padding='same')(conv2dTranspose_layer_2)
-        conv2d_layer_2 = tf.keras.layers.Conv2D(3, kernel_size=(3, 3), activation='relu', padding='same')(conv2dTranspose_layer_3)
-        
-        return tf.keras.Model(inputs=input_layer, outputs=conv2d_layer_2, name='decoder')
+        input_layer = tf.keras.layers.Input(shape=(self.latent_dim), dtype=tf.float32, name='latent_input')
+        dense_layer_1 = tf.keras.layers.Dense(self.latent_dim, activation='relu')(input_layer)
+        expand_layer = tf.keras.layers.Lambda(lambda x: tf.expand_dims(tf.expand_dims(x, axis=1), axis=1))(dense_layer_1) # (None, 1, 1, 1024)
+        conv2dTranspose_layer_1 = tf.keras.layers.Conv2DTranspose(8, kernel_size=3, strides=2, activation='relu', padding='same')(expand_layer) # (None, 8, 8, 8)
+        conv2dTranspose_layer_2 = tf.keras.layers.Conv2DTranspose(16, kernel_size=3, strides=2, activation='relu', padding='same')(conv2dTranspose_layer_1) # (None, 16, 16, 16)
+        dense_layer_2 = tf.keras.layers.Dense(self.img_SIZE * self.img_SIZE, activation='relu')(conv2dTranspose_layer_2) # (None, 16, 16, 784)
+        pooling_layer = tf.keras.layers.GlobalAveragePooling2D()(dense_layer_2) # (None, 784)
+        output_layer = tf.keras.layers.Reshape((self.img_SIZE, self.img_SIZE, 1))(pooling_layer) # (None, 28, 28, 1)
+
+        return tf.keras.Model(inputs=input_layer, outputs=output_layer, name='decoder')
     
     def preprocess_img(self, img_url:tf.Tensor) -> tf.Tensor:
         img_url = img_url.numpy().decode('utf-8')
@@ -277,12 +276,12 @@ if __name__ == '__main__':
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-
         # display reconstruction
         ax = plt.subplot(2, n, i + 1 + n)
         plt.imshow(autoencoder(dataset)[i].numpy().reshape(28, 28))
         plt.gray()
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
-
-    plt.savefig('output.png')
+   
+    plt.savefig('data/debug/convolutional_autoencoder.png')
+ 
