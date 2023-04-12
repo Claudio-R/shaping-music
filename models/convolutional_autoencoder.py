@@ -42,7 +42,8 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         encoded_imgs = self.encoder(styles)
         decoded_imgs = self.decoder(encoded_imgs)
 
-        snd_embeds = tf.map_fn(self.compute_snd_embeds, wav_urls, dtype=tf.float32)        
+        # snd_embeds = tf.map_fn(self.compute_snd_embeds, wav_urls, dtype=tf.float32)
+        snd_embeds = self.compute_snd_embeds(wav_urls)        
         return imgs, encoded_imgs, decoded_imgs, snd_embeds
     
     def custom_loss(self, imgs:tf.Tensor, encoded_imgs:tf.Tensor, decoded_imgs:tf.Tensor, snd_embeds:tf.Tensor):
@@ -75,10 +76,9 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         epochs: number of epochs to train the model
         '''
         for epoch in range(epochs):
-            print(f"Epoch {epoch + 1}/{epochs}")
-            for data in tqdm.tqdm(dataset):
+            for data in tqdm.tqdm(dataset, desc=f"Epoch {epoch+1}", ):
                 loss = self.train_step(data)
-            print(f"Loss: {loss}")
+            print(f"loss: {loss}")
 
     def define_style_extractor(self) -> tf.keras.Model:
         vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
@@ -90,11 +90,15 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         return hub.load('https://tfhub.dev/google/yamnet/1')
 
     @tf.autograph.experimental.do_not_convert
-    def compute_snd_embeds(self, wav_url:tf.Tensor) -> tf.Tensor:
-        wav_url = wav_url.numpy().decode('utf-8')
-        wav, _ = librosa.load(wav_url, sr=16000, mono=True)
-        wav = tf.convert_to_tensor(wav, dtype=tf.float32)
-        _, embeds, _ = self.snd_encoder(wav)
+    def compute_snd_embeds(self, wav_urls:tf.Tensor) -> tf.Tensor:
+        embeds = []
+        for wav_url in wav_urls:
+            wav_url = wav_url.numpy().decode('utf-8')
+            wav, _ = librosa.load(wav_url, sr=16000, mono=True)
+            wav = tf.convert_to_tensor(wav, dtype=tf.float32)
+            _, e, _ = self.snd_encoder(wav)
+            embeds.append(e)
+        embeds = tf.stack(embeds)
         return embeds
 
     def define_encoder(self) -> tf.keras.Model:
@@ -109,12 +113,12 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         self.latent_dim = 1024
 
         input_layers = [tf.keras.layers.Input(shape=(img_shape[1], img_shape[2], img_shape[3]), dtype=tf.float32, name=f'input_{i}') for i, img_shape in enumerate(self.img_shapes)]
-        conv2d_layers_1 = [tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2)(input_layer) for input_layer in input_layers]
-        conv2d_layers_2 = [tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2)(conv2d_layer_1) for conv2d_layer_1 in conv2d_layers_1]
-        dense_layers_1 = [tf.keras.layers.Dense(self.latent_dim, activation='relu')(conv2d_layer_2) for conv2d_layer_2 in conv2d_layers_2]
+        conv2d_layers_1 = [tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2, name=f'encoder_conv2d_1_{i}')(input_layer) for i, input_layer in enumerate(input_layers)]
+        conv2d_layers_2 = [tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2, name=f'encoder_conv2d_2_{i}')(conv2d_layer_1) for i, conv2d_layer_1 in enumerate(conv2d_layers_1)]
+        dense_layers_1 = [tf.keras.layers.Dense(self.latent_dim, activation='relu', name=f'encoder_dense_1_{i}')(conv2d_layer_2) for i, conv2d_layer_2 in enumerate(conv2d_layers_2)]
         pooling_layers = [tf.keras.layers.GlobalAveragePooling2D()(dense_layer) for dense_layer in dense_layers_1]
         concatenate_layer = tf.keras.layers.Concatenate(axis=-1)(pooling_layers)
-        dense_layer_2 = tf.keras.layers.Dense(self.latent_dim, activation='relu')(concatenate_layer)
+        dense_layer_2 = tf.keras.layers.Dense(self.latent_dim, activation='relu', name=f'encoder_dense_2')(concatenate_layer)
         return tf.keras.Model(inputs=input_layers, outputs=dense_layer_2, name='encoder')
 
     def define_decoder(self) -> tf.keras.Model:
@@ -125,14 +129,14 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         '''
         self.NUM_CHANNELS = 3
         input_layer = tf.keras.layers.Input(shape=(self.latent_dim), dtype=tf.float32, name='latent_input')
-        dense_layer_1 = tf.keras.layers.Dense(self.latent_dim, activation='relu')(input_layer)
+        dense_layer_1 = tf.keras.layers.Dense(self.latent_dim, activation='relu', name='decoder_dense_1')(input_layer)
         expand_layer = tf.keras.layers.Lambda(lambda x: tf.expand_dims(tf.expand_dims(x, axis=1), axis=1))(dense_layer_1) # (None, 1, 1, 1024)
-        conv2dTranspose_layer_1 = tf.keras.layers.Conv2DTranspose(8, kernel_size=3, strides=2, activation='relu', padding='same')(expand_layer) # (None, 8, 8, 8)
-        conv2dTranspose_layer_2 = tf.keras.layers.Conv2DTranspose(16, kernel_size=3, strides=2, activation='relu', padding='same')(conv2dTranspose_layer_1) # (None, 16, 16, 16)
-        dense_layer_2 = tf.keras.layers.Dense(self.img_SIZE * self.img_SIZE, activation='relu')(conv2dTranspose_layer_2) # (None, 16, 16, 784)
+        conv2dTranspose_layer_1 = tf.keras.layers.Conv2DTranspose(8, kernel_size=3, strides=2, activation='relu', padding='same', name='decoder_conv2d_transpose_1')(expand_layer) # (None, 8, 8, 8)
+        conv2dTranspose_layer_2 = tf.keras.layers.Conv2DTranspose(16, kernel_size=3, strides=2, activation='relu', padding='same', name='decoder_conv2d_transpose_2')(conv2dTranspose_layer_1) # (None, 16, 16, 16)
+        dense_layer_2 = tf.keras.layers.Dense(self.img_SIZE * self.img_SIZE, activation='relu', name='decoder_dense_2')(conv2dTranspose_layer_2) # (None, 16, 16, 784)
         pooling_layer = tf.keras.layers.GlobalAveragePooling2D()(dense_layer_2) # (None, 784)
         reshape_layer = tf.keras.layers.Reshape((self.img_SIZE, self.img_SIZE, 1))(pooling_layer) # (None, 28, 28, 1)
-        dense_layer_3 = tf.keras.layers.Dense(self.NUM_CHANNELS, activation='relu')(reshape_layer) # (None, 28, 28, 3)
+        dense_layer_3 = tf.keras.layers.Dense(self.NUM_CHANNELS, activation='relu', name='decoder_dense_3')(reshape_layer) # (None, 28, 28, 3)
 
         return tf.keras.Model(inputs=input_layer, outputs=dense_layer_3, name='decoder')
     
@@ -203,34 +207,106 @@ class ConvolutionalAutoencoder(tf.keras.Model):
             print(f"New FPS: {new_fps}")
             sampling_period = 1 / new_fps
             t_starts = np.arange(0, video_duration, sampling_period)
+            
+            def augment_img(img, wav_path:str, img_idx:int, wav_idx:int):
+                # resize the image
+                img = tf.constant(img / 255.0, dtype=tf.float32) 
+                img = tf.image.resize(img, (self.img_SIZE, self.img_SIZE)) 
+                img = tf.cast(img * 255.0, tf.uint8) # (None, 28, 28, 3), tf.uint8
 
+                # original image
+                path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
+                imageio.imwrite(path, img)
+                img_urls.append(path)
+                wav_urls.append(wav_path)
+                img_idx += 1
+                wav_idx += 1
+
+                # flipped image
+                flipped_img = tf.image.flip_left_right(img)
+                flipped_path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
+                imageio.imwrite(flipped_path, flipped_img)
+                img_urls.append(flipped_path)
+                wav_urls.append(wav_path)
+                img_idx += 1
+                wav_idx += 1
+                
+                # contrast image by a random value
+                contrast_img = tf.image.adjust_contrast(img, np.random.uniform(0.1, 0.5))
+                contrast_path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
+                imageio.imwrite(contrast_path, contrast_img)
+                img_urls.append(contrast_path)
+                wav_urls.append(wav_path)
+                img_idx += 1
+                wav_idx += 1
+                
+                # brightness image
+                brightness_img = tf.image.adjust_brightness(img, np.random.uniform(0.1, 0.5))
+                brightness_path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
+                imageio.imwrite(brightness_path, brightness_img)
+                img_urls.append(brightness_path)
+                wav_urls.append(wav_path)
+                img_idx += 1
+                wav_idx += 1
+                
+                # hue image
+                hue_img = tf.image.adjust_hue(img, np.random.uniform(0.1, 0.5))
+                hue_path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
+                imageio.imwrite(hue_path, hue_img)
+                img_urls.append(hue_path)
+                wav_urls.append(wav_path)
+                img_idx += 1
+                wav_idx += 1
+                
+                # saturation image
+                saturation_img = tf.image.adjust_saturation(img, np.random.uniform(0.1, 0.5))
+                saturation_path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
+                imageio.imwrite(saturation_path, saturation_img)
+                img_urls.append(saturation_path)
+                wav_urls.append(wav_path)
+                img_idx += 1
+                wav_idx += 1
+                
+                # gamma image
+                gamma_img = tf.image.adjust_gamma(img, np.random.uniform(0.1, 0.5))
+                gamma_path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
+                imageio.imwrite(gamma_path, gamma_img)
+                img_urls.append(gamma_path)
+                wav_urls.append(wav_path)
+                img_idx += 1
+                wav_idx += 1
+                return img_idx, wav_idx
+            
             print(f"Processing video {video_url} with {len(t_starts)-1} frames and {len(t_starts)-1} audio segments...")
             for t_start in tqdm.tqdm(t_starts[:-1]):
-                # Use imageio to save frames
-                frame = video.get_frame(t_start)
-                frame_path = os.path.join(images_dir, f"frame_{img_idx}.jpg")
-                imageio.imwrite(frame_path, frame)
-                img_urls.append(frame_path)
-                img_idx += 1
-
                 # Use librosa to save audio segments
-                y, sr = librosa.load(music_path, sr=44100, offset=t_start, duration=sampling_period)
-                audio_path = os.path.join(audios_dir, f"audio_{wav_idx}.wav")
-                sf.write(audio_path, y, sr)    
-                wav_urls.append(audio_path)     
-                wav_idx += 1
-            
+                wav, sr = librosa.load(music_path, sr=44100, offset=t_start, duration=sampling_period)
+                wav_path = os.path.join(audios_dir, f"audio_{wav_idx}.wav")
+                sf.write(wav_path, wav, sr)    
+                # wav_urls.append(wav_path)     
+                # wav_idx += 1
+
+                # Use imageio to save frames
+                img = video.get_frame(t_start)
+                img_idx, wav_idx = augment_img(img, wav_path, img_idx, wav_idx)
+                            
+            video.close()
+            music.close()
+
             print(f"Video {video_url} was successfully processed!")
 
         # 5. Create dataset
         assert len(img_urls) == len(wav_urls), "Number of images and audios must be equal!"
         dataset = tf.data.Dataset.from_tensor_slices({'img_urls': img_urls, 'wav_urls': wav_urls})
         dataset = dataset.batch(batch_size=BATCH_SIZE)
-        dataset = dataset.shuffle(buffer_size=1000).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-        print('Dataset created successfully!')
+        dataset = dataset.shuffle(buffer_size=100).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+        
+        # 6. Print dataset info    
+        print('\nDataset created successfully!')
         print(f"Number of batches: {len(dataset)}")
         print(f"Number of samples per batch: {BATCH_SIZE}")
-        print(f"Total number of images and audio samples: {(len(img_urls), len(wav_urls))}")
+        print(f"Total number of images and audio samples: {(len(img_urls), len(wav_urls))}\n")
+   
         return dataset
     
 if __name__ == '__main__':
@@ -241,10 +317,14 @@ if __name__ == '__main__':
         # 'data/test_video/test3.mp4'
     ]
 
+    # load mnist dataset
+    
+
+
     autoencoder = ConvolutionalAutoencoder()
     autoencoder.compile(optimizer='adam', loss=autoencoder.custom_loss)
     dataset = autoencoder.parse_videos(training_videos, FPS=60, BATCH_SIZE=32)
-    # autoencoder.train(dataset, epochs=1)
+    autoencoder.train(dataset, epochs=1)
 
     n = 10
     dataset = dataset.take(n)
@@ -276,7 +356,7 @@ if __name__ == '__main__':
             decoded_img = tf.squeeze(decoded_img, axis=0)
 
             # must be normalized to [0, 1] for imshow
-            # decoded_img = (decoded_img - tf.reduce_min(decoded_img)) / (tf.reduce_max(decoded_img) - tf.reduce_min(decoded_img))
+            decoded_img = (decoded_img - tf.reduce_min(decoded_img)) / (tf.reduce_max(decoded_img) - tf.reduce_min(decoded_img))
 
             plt.imshow(decoded_img.numpy())
             plt.gray()
