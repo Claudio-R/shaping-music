@@ -1,5 +1,5 @@
 # NOTE: mnist images are normalized in the range [0, 1]
-# TODO: define a custom loop
+# TODO: define a custom loss function
 
 import tensorflow as tf
 import tqdm
@@ -35,15 +35,19 @@ class ConvolutionalAutoencoder(tf.keras.Model):
     def train_step(self, batch):
         with tf.GradientTape() as tape:
             decoded_img = self.call(batch)
-            loss = self.loss(decoded_img, batch)
+            loss = self.custom_loss(batch, decoded_img)
         gradients = tape.gradient(loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         return loss
     
     def test_step(self, batch):
         decoded_img = self.call(batch)
-        loss = self.loss(decoded_img, batch)
+        loss = self.custom_loss(batch, decoded_img)
         return loss
+
+    def custom_loss(self, y_true, y_pred):
+        fn = tf.keras.losses.MeanSquaredError()
+        return fn(y_true, y_pred)
 
     def call(self, imgs):
         # img = self.preprocess(img_url)
@@ -132,7 +136,7 @@ if __name__ == '__main__':
     x_test = tf.data.Dataset.from_tensor_slices(x_test).batch(32).shuffle(1000)
 
     autoencoder = ConvolutionalAutoencoder()
-    autoencoder.train(x_train, x_val, epochs=1)
+    autoencoder.train(x_train, x_val, epochs=3)
     # autoencoder.fit(x_train, x_train,
     #                 epochs=1,
     #                 shuffle=True,
