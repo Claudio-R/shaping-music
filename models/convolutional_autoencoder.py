@@ -20,7 +20,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
     def train(self, training_data, validation_data, epochs=10):
         self.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
         for e in range(epochs):
-            print(f'Epoch {e+1}/{epochs}')
+            print(f'\nEpoch {e+1}/{epochs}')
             loss = 0
             for batch in tqdm.tqdm(training_data, desc='Training'):
                 loss += self.train_step(batch)
@@ -32,7 +32,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
             loss /= len(validation_data)
             print(f'Validation Loss: {loss}')
             
-    def train_step(self, batch):
+    def train_step(self, batch:tf.Tensor):
         with tf.GradientTape() as tape:
             decoded_img = self.call(batch)
             loss = self.custom_loss(batch, decoded_img)
@@ -40,12 +40,12 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         return loss
     
-    def test_step(self, batch):
+    def test_step(self, batch:tf.Tensor):
         decoded_img = self.call(batch)
         loss = self.custom_loss(batch, decoded_img)
         return loss
 
-    def custom_loss(self, y_true, y_pred):
+    def custom_loss(self, y_true:tf.Tensor, y_pred:tf.Tensor):
         fn = tf.keras.losses.MeanSquaredError()
         return fn(y_true, y_pred)
 
@@ -84,7 +84,8 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         pooling_layers = [tf.keras.layers.GlobalAveragePooling2D()(dense_layer) for dense_layer in dense_layers_1]
         concatenate_layer = tf.keras.layers.Concatenate(axis=-1)(pooling_layers)
         dense_layer_2 = tf.keras.layers.Dense(self.latent_dim, activation='relu', name=f'encoder_dense_2')(concatenate_layer)
-        return tf.keras.Model(inputs=input_layers, outputs=dense_layer_2, name='encoder')
+        normalize_layer = tf.keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))(dense_layer_2)
+        return tf.keras.Model(inputs=input_layers, outputs=normalize_layer, name='encoder')
 
     def define_decoder(self) -> tf.keras.Model:
         '''
@@ -137,11 +138,6 @@ if __name__ == '__main__':
 
     autoencoder = ConvolutionalAutoencoder()
     autoencoder.train(x_train, x_val, epochs=3)
-    # autoencoder.fit(x_train, x_train,
-    #                 epochs=1,
-    #                 shuffle=True,
-    #                 validation_data=(x_test, x_test))
-
         
     n = 10
     x_test = x_test.take(n).as_numpy_iterator().next()
