@@ -1,5 +1,6 @@
 # NOTE: mnist images are normalized in the range [0, 1]
-# TODO: loss function works but it needs a lot of training
+# NOTE: very good results using block1 and block2 of vgg19, also good results with block1 only, 128x128 images and 30 epochs
+# TODO: loss function works but it needs a lot of training, increasing the size leads to underfitting, trying more epochs
 
 import tensorflow as tf
 import tqdm, os
@@ -11,16 +12,40 @@ import numpy as np
 class ConvolutionalAutoencoder(tf.keras.Model):
     def __init__(self):
         super(ConvolutionalAutoencoder, self).__init__()
-        self.img_SIZE = 56
+        self.img_SIZE = 128
         self.style_extractor = self.define_style_extractor()
         self.encoder = self.define_encoder()
         self.decoder = self.define_decoder()
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
+        
+        self.checkpoint_dir = './data/training_checkpoints'
+        self.checkpoint_prefix = os.path.join(self.checkpoint_dir, 'ckpt')
+        if not os.path.exists(self.checkpoint_dir):
+            os.mkdir(self.checkpoint_dir)
 
-        # plot the models
+        self.checkpoint = tf.train.Checkpoint(
+            optimizer=self.optimizer, 
+            encoder=self.encoder, 
+            decoder=self.decoder)
+        
+        self.checkpoint_manager = tf.train.CheckpointManager(
+            self.checkpoint, 
+            self.checkpoint_dir, 
+            max_to_keep=3)
+        
+        self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
+        if self.checkpoint_manager.latest_checkpoint:
+            print(f'\nRestored from {self.checkpoint_manager.latest_checkpoint}')
+        else:
+            print('\nInitializing from scratch.')
+        
+        self.plot_models()
+
+    def plot_models(self):
         tf.keras.utils.plot_model(self.style_extractor, to_file='style_extractor.png', show_shapes=True, show_layer_names=True)
         tf.keras.utils.plot_model(self.encoder, to_file='encoder.png', show_shapes=True, show_layer_names=True)
         tf.keras.utils.plot_model(self.decoder, to_file='decoder.png', show_shapes=True, show_layer_names=True)
-        
+
     def train(self, training_data, validation_data, epochs=10):
         self.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
         for e in range(epochs):
@@ -35,6 +60,13 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 loss += self.test_step(batch)
             loss /= len(validation_data)
             print(f'Validation Loss: {loss}')
+            if (e + 1) % 1 == 0:
+                # remove the previous checkpoint
+                if os.path.exists(self.checkpoint_dir):
+                    for file in os.listdir(self.checkpoint_dir):
+                        os.remove(os.path.join(self.checkpoint_dir, file))
+                # save the current checkpoint
+                self.checkpoint_manager.save()
             
     def train_step(self, img_urls:tf.Tensor):
         imgs = tf.map_fn(self.preprocess_img, img_urls, dtype=tf.float32)
@@ -67,7 +99,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
 
     def define_style_extractor(self):
         vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
-        styles = ['block1_conv1']#, 'block2_conv1', 'block3_conv1', 'block4_conv1', 'block5_conv1']
+        styles = ['block1_conv1']#, 'block2_conv1'], 'block3_conv1', 'block4_conv1', 'block5_conv1']
         styles_layers = [vgg19.get_layer(style).output for style in styles]
         return tf.keras.Model(inputs=vgg19.input, outputs=styles_layers, name='style_extractor', trainable=False)
 
@@ -294,6 +326,17 @@ class ConvolutionalAutoencoder(tf.keras.Model):
 
         return dataset
     
+    def save_checkpoint(self, epoch):
+        self.checkpoint.save(file_prefix=self.checkpoint_prefix)
+        print(f"Checkpoint saved at epoch {epoch}!")
+    
+    def load_checkpoint(self):
+        try:
+            self.checkpoint.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
+            print("Checkpoint loaded!")
+        except:
+            print("No checkpoint found!")
+            
 if __name__ == '__main__':
 
     autoencoder = ConvolutionalAutoencoder()
@@ -309,7 +352,7 @@ if __name__ == '__main__':
     dataset = autoencoder.parse_videos(training_videos, FPS=60, BATCH_SIZE=32)
     train_data, val_data, test_data = dataset['train'], dataset['val'], dataset['test']
 
-    autoencoder.train(train_data, val_data, epochs=10)
+    autoencoder.train(train_data, val_data, epochs=1)
     
     n = 10
     dataset = test_data.take(n)
