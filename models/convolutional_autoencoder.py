@@ -1,8 +1,8 @@
 # NOTE: mnist images are normalized in the range [0, 1]
 # NOTE: very good results using block1 and block2 of vgg19, also good results with block1 only, 128x128 images and 30 epochs
-# TODO: loss function works but it needs a lot of training, increasing the size leads to underfitting, trying more epochs
+# TODO: add sound support
 
-import tensorflow as tf
+import tensorflow as tf, tensorflow_hub as hub
 import tqdm, os
 import imageio, moviepy.editor as mp
 import librosa, soundfile as sf
@@ -12,12 +12,17 @@ import numpy as np
 class ConvolutionalAutoencoder(tf.keras.Model):
     def __init__(self):
         super(ConvolutionalAutoencoder, self).__init__()
-        self.img_SIZE = 128
+        self.img_SIZE = 64
         self.style_extractor = self.define_style_extractor()
+        self.snd_encoder = self.define_sound_encoder()
         self.encoder = self.define_encoder()
         self.decoder = self.define_decoder()
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
         
+        self.define_checkpoint()
+        self.plot_models()
+
+    def define_checkpoint(self):
         self.checkpoint_dir = './data/training_checkpoints'
         self.checkpoint_prefix = os.path.join(self.checkpoint_dir, 'ckpt')
         if not os.path.exists(self.checkpoint_dir):
@@ -35,19 +40,25 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         
         self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
         if self.checkpoint_manager.latest_checkpoint:
-            print(f'\nRestored from {self.checkpoint_manager.latest_checkpoint}')
+            print(f'\n### Restored from {self.checkpoint_manager.latest_checkpoint} ###\n')
         else:
-            print('\nInitializing from scratch.')
-        
-        self.plot_models()
-
+            print('\n### Initializing model from scratch ###\n')
+    
     def plot_models(self):
         tf.keras.utils.plot_model(self.style_extractor, to_file='style_extractor.png', show_shapes=True, show_layer_names=True)
         tf.keras.utils.plot_model(self.encoder, to_file='encoder.png', show_shapes=True, show_layer_names=True)
         tf.keras.utils.plot_model(self.decoder, to_file='decoder.png', show_shapes=True, show_layer_names=True)
 
+    def call(self, imgs, wav_urls):
+        img_embeds = self.style_extractor(imgs)
+        styles = self.get_style(img_embeds)
+        encoded_imgs = self.encoder(styles)
+        snd_embeds = self.compute_snd_embeds(wav_urls)
+        decoded_imgs = self.decoder(encoded_imgs)
+        return encoded_imgs, decoded_imgs, snd_embeds
+
     def train(self, training_data, validation_data, epochs=10):
-        self.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError())
+        self.compile(optimizer=self.optimizer)
         for e in range(epochs):
             print(f'\nEpoch {e+1}/{epochs}')
             loss = 0
@@ -61,47 +72,60 @@ class ConvolutionalAutoencoder(tf.keras.Model):
             loss /= len(validation_data)
             print(f'Validation Loss: {loss}')
             if (e + 1) % 1 == 0:
-                # remove the previous checkpoint
-                if os.path.exists(self.checkpoint_dir):
-                    for file in os.listdir(self.checkpoint_dir):
-                        os.remove(os.path.join(self.checkpoint_dir, file))
-                # save the current checkpoint
                 self.checkpoint_manager.save()
             
-    def train_step(self, img_urls:tf.Tensor):
+    def train_step(self, batch):
+        img_urls = batch['img_urls']
+        wav_urls = batch['wav_urls']
         imgs = tf.map_fn(self.preprocess_img, img_urls, dtype=tf.float32)
+        # wavs = tf.map_fn(self.preprocess_wav, wav_urls, dtype=tf.float32)
         with tf.GradientTape() as tape:
-            decoded_imgs = self.call(imgs)
-            loss = self.custom_loss(imgs, decoded_imgs)
+            encoded_imgs, decoded_imgs, snd_embeds = self.call(imgs, wav_urls)
+            loss = self.custom_loss(imgs, encoded_imgs, decoded_imgs, snd_embeds)
         gradients = tape.gradient(loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
         return loss
     
-    def test_step(self, img_urls:tf.Tensor):
+    def test_step(self, batch):
+        img_urls = batch['img_urls']
+        wav_urls = batch['wav_urls']
         imgs = tf.map_fn(self.preprocess_img, img_urls, dtype=tf.float32)
-        decoded_img = self.call(imgs)
-        loss = self.custom_loss(imgs, decoded_img)
+        # wavs = tf.map_fn(self.preprocess_wav, wav_urls, dtype=tf.float32)
+        encoded_imgs, decoded_imgs, snd_embeds = self.call(imgs, wav_urls)
+        loss = self.custom_loss(imgs, encoded_imgs, decoded_imgs, snd_embeds)
         return loss
 
-    def custom_loss(self, y_true:tf.Tensor, y_pred:tf.Tensor):
+    def custom_loss(self, imgs:tf.Tensor, encoded_imgs:tf.Tensor, decoded_imgs:tf.Tensor, snd_embeds:tf.Tensor):
         fn = tf.keras.losses.MeanSquaredError()
-        return fn(y_true, y_pred)
-
-    def call(self, imgs):
-        # convert to rgb
-        # imgs = tf.image.grayscale_to_rgb(imgs)
-        # imgs = tf.keras.applications.vgg19.preprocess_input(imgs)
-        embeds = self.style_extractor(imgs)
-        styles = self.get_style(embeds)
-        encoded_imgs = self.encoder(styles)
-        decoded_imgs = self.decoder(encoded_imgs)
-        return decoded_imgs
-
-    def define_style_extractor(self):
+        # print("imgs: ", imgs.shape) # (32, 28, 28, 3)
+        # print("decoded_imgs: ", decoded_imgs.shape) # (32, 28, 28, 3)
+        # print("encoded_imgs: ", encoded_imgs.shape) # (32, 1024)
+        # print("snd_embeds: ", snd_embeds.shape) # (32, 1, 1024)
+ 
+        reconstruction_loss = fn(imgs, decoded_imgs) # in the order of 2500
+        encoding_loss = fn(encoded_imgs, snd_embeds) # in the order of 1.0
+        return 0.01 * reconstruction_loss + 1.0 * encoding_loss
+    
+    @tf.autograph.experimental.do_not_convert
+    def compute_snd_embeds(self, wav_urls:tf.Tensor) -> tf.Tensor:
+        snd_embeds = []
+        for wav_url in wav_urls:
+            wav_url = wav_url.numpy().decode('utf-8')
+            wav, _ = librosa.load(wav_url, sr=16000, mono=True)
+            wav = tf.convert_to_tensor(wav, dtype=tf.float32)
+            _, e, _ = self.snd_encoder(wav)
+            snd_embeds.append(e)
+        snd_embeds = tf.stack(snd_embeds)
+        return snd_embeds
+    
+    def define_style_extractor(self) -> tf.keras.Model:
         vgg19 = tf.keras.applications.VGG19(include_top=False, weights='imagenet')
         styles = ['block1_conv1']#, 'block2_conv1'], 'block3_conv1', 'block4_conv1', 'block5_conv1']
         styles_layers = [vgg19.get_layer(style).output for style in styles]
         return tf.keras.Model(inputs=vgg19.input, outputs=styles_layers, name='style_extractor', trainable=False)
+
+    def define_sound_encoder(self) -> tf.keras.Model:
+        return hub.load('https://tfhub.dev/google/yamnet/1')
 
     def define_encoder(self) -> tf.keras.Model:
         '''
@@ -117,12 +141,10 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         input_layers = [tf.keras.layers.Input(shape=(img_shape[1], img_shape[2], img_shape[3]), dtype=tf.float32, name=f'input_{i}') for i, img_shape in enumerate(self.img_shapes)]
         conv2d_layers_1 = [tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same', strides=2, name=f'encoder_conv2d_1_{i}')(input_layer) for i, input_layer in enumerate(input_layers)]
         conv2d_layers_2 = [tf.keras.layers.Conv2D(16, (3, 3), activation='relu', padding='same', strides=2, name=f'encoder_conv2d_2_{i}')(conv2d_layer_1) for i, conv2d_layer_1 in enumerate(conv2d_layers_1)]
-        # conv2d_layers_3 = [tf.keras.layers.Conv2D(8, (3, 3), activation='relu', padding='same', strides=2, name=f'encoder_conv2d_3_{i}')(conv2d_layer_2) for i, conv2d_layer_2 in enumerate(conv2d_layers_2)]
         dense_layers_1 = [tf.keras.layers.Dense(self.latent_dim, activation='relu', name=f'encoder_dense_1_{i}')(conv2d_layer_2) for i, conv2d_layer_2 in enumerate(conv2d_layers_2)]
         pooling_layers = [tf.keras.layers.GlobalAveragePooling2D()(dense_layer) for dense_layer in dense_layers_1]
         concatenate_layer = tf.keras.layers.Concatenate(axis=-1)(pooling_layers)
         dense_layer_2 = tf.keras.layers.Dense(self.latent_dim, activation='relu', name=f'encoder_dense_2')(concatenate_layer)
-        # normalize_layer = tf.keras.layers.Lambda(lambda x: tf.math.l2_normalize(x, axis=1))(dense_layer_2)
         return tf.keras.Model(inputs=input_layers, outputs=dense_layer_2, name='encoder')
 
     def define_decoder(self) -> tf.keras.Model:
@@ -137,7 +159,6 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         expand_layer = tf.keras.layers.Lambda(lambda x: tf.expand_dims(tf.expand_dims(x, axis=1), axis=1))(dense_layer_1) # (None, 1, 1, 1024)
         conv2dTranspose_layer_1 = tf.keras.layers.Conv2DTranspose(8, kernel_size=3, strides=2, activation='relu', padding='same', name='decoder_conv2d_transpose_1')(expand_layer) # (None, 8, 8, 8)
         conv2dTranspose_layer_2 = tf.keras.layers.Conv2DTranspose(16, kernel_size=3, strides=2, activation='relu', padding='same', name='decoder_conv2d_transpose_2')(conv2dTranspose_layer_1) # (None, 16, 16, 16)
-        # conv2dTranspose_layer_3 = tf.keras.layers.Conv2DTranspose(32, kernel_size=3, strides=2, activation='relu', padding='same', name='decoder_conv2d_transpose_3')(conv2dTranspose_layer_2) # (None, 32, 32, 32)
         dense_layer_2 = tf.keras.layers.Dense(self.img_SIZE * self.img_SIZE * self.NUM_CHANNELS, activation='relu', name='decoder_dense_2')(conv2dTranspose_layer_2) # (None, 16, 16, 784)
         pooling_layer = tf.keras.layers.GlobalAveragePooling2D()(dense_layer_2) # (None, 784)
         reshape_layer = tf.keras.layers.Reshape((self.img_SIZE, self.img_SIZE, self.NUM_CHANNELS))(pooling_layer) # (None, 28, 28, 3)
@@ -162,14 +183,13 @@ class ConvolutionalAutoencoder(tf.keras.Model):
             embed = (result / num_locations)
         return embeds
 
-    def parse_videos(self, video_urls:str, FPS:int=12, BATCH_SIZE:int=32) -> tf.data.Dataset:
+    def create_dataset(self, video_urls:str, FPS:int=12, BATCH_SIZE:int=32) -> tf.data.Dataset:
         '''
         Parse videos into images and audios and return a tf.data.Dataset
         video_urls: list of video urls
         FPS: frames per second
         BATCH_SIZE: batch size
         '''
-
         self.fps = FPS
         self.batch_size = BATCH_SIZE
 
@@ -228,7 +248,6 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 img_urls.append(path)
                 wav_urls.append(wav_path)
                 img_idx += 1
-                wav_idx += 1
 
                 # flipped image
                 flipped_img = tf.image.flip_left_right(img)
@@ -237,7 +256,6 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 img_urls.append(flipped_path)
                 wav_urls.append(wav_path)
                 img_idx += 1
-                wav_idx += 1
                 
                 # contrast image by a random value
                 contrast_img = tf.image.adjust_contrast(img, np.random.uniform(0.1, 0.5))
@@ -246,7 +264,6 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 img_urls.append(contrast_path)
                 wav_urls.append(wav_path)
                 img_idx += 1
-                wav_idx += 1
                 
                 # brightness image
                 brightness_img = tf.image.adjust_brightness(img, np.random.uniform(0.1, 0.5))
@@ -255,7 +272,6 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 img_urls.append(brightness_path)
                 wav_urls.append(wav_path)
                 img_idx += 1
-                wav_idx += 1
                 
                 # hue image
                 hue_img = tf.image.adjust_hue(img, np.random.uniform(0.1, 0.5))
@@ -264,7 +280,6 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 img_urls.append(hue_path)
                 wav_urls.append(wav_path)
                 img_idx += 1
-                wav_idx += 1
                 
                 # saturation image
                 saturation_img = tf.image.adjust_saturation(img, np.random.uniform(0.1, 0.5))
@@ -273,7 +288,6 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 img_urls.append(saturation_path)
                 wav_urls.append(wav_path)
                 img_idx += 1
-                wav_idx += 1
                 
                 # gamma image
                 gamma_img = tf.image.adjust_gamma(img, np.random.uniform(0.1, 0.5))
@@ -282,8 +296,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 img_urls.append(gamma_path)
                 wav_urls.append(wav_path)
                 img_idx += 1
-                wav_idx += 1
-                return img_idx, wav_idx
+                return img_idx
             
             print(f"Processing video {video_url} with {len(t_starts)-1} frames and {len(t_starts)-1} audio segments...")
             for t_start in tqdm.tqdm(t_starts[:-1]):
@@ -291,12 +304,11 @@ class ConvolutionalAutoencoder(tf.keras.Model):
                 wav, sr = librosa.load(music_path, sr=44100, offset=t_start, duration=sampling_period)
                 wav_path = os.path.join(audios_dir, f"audio_{wav_idx}.wav")
                 sf.write(wav_path, wav, sr)    
-                # wav_urls.append(wav_path)     
-                # wav_idx += 1
+                wav_idx += 1
 
                 # Use imageio to save frames
                 img = video.get_frame(t_start)
-                img_idx, wav_idx = augment_img(img, wav_path, img_idx, wav_idx)
+                img_idx = augment_img(img, wav_path, img_idx, wav_idx)
                             
             video.close()
             music.close()
@@ -305,8 +317,7 @@ class ConvolutionalAutoencoder(tf.keras.Model):
 
         # 5. Create dataset
         assert len(img_urls) == len(wav_urls), "Number of images and audios must be equal!"
-        # dataset = tf.data.Dataset.from_tensor_slices({'img_urls': img_urls, 'wav_urls': wav_urls}).shuffle(len(img_urls))
-        dataset = tf.data.Dataset.from_tensor_slices(img_urls).shuffle(len(img_urls))
+        dataset = tf.data.Dataset.from_tensor_slices({'img_urls': img_urls, 'wav_urls': wav_urls}).shuffle(len(img_urls))
         train_data, test_data = dataset.take(int(len(dataset) * 0.8)), dataset.skip(int(len(dataset) * 0.8))
         train_data, val_data = train_data.take(int(len(train_data) * 0.8)), train_data.skip(int(len(train_data) * 0.8))
         dataset = {
@@ -325,43 +336,32 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         print(f"Batch size: {BATCH_SIZE}")
 
         return dataset
-    
-    def save_checkpoint(self, epoch):
-        self.checkpoint.save(file_prefix=self.checkpoint_prefix)
-        print(f"Checkpoint saved at epoch {epoch}!")
-    
-    def load_checkpoint(self):
-        try:
-            self.checkpoint.restore(tf.train.latest_checkpoint(self.checkpoint_dir))
-            print("Checkpoint loaded!")
-        except:
-            print("No checkpoint found!")
-            
-if __name__ == '__main__':
 
-    autoencoder = ConvolutionalAutoencoder()
+    def create_clip(self, wav_urls:str):
+        return
+
+if __name__ == '__main__':
 
     training_videos = [
         # 'data/test_video/test1.mp4',
         'data/test_video/test2.mp4',
-        # 'data/test_video/test3.mp4'
+        # 'data/test_video/test3.mp4' # Janis Joplin
     ]
-
-    # load mnist dataset
     
-    dataset = autoencoder.parse_videos(training_videos, FPS=60, BATCH_SIZE=32)
+    autoencoder = ConvolutionalAutoencoder()
+    dataset = autoencoder.create_dataset(training_videos, FPS=60, BATCH_SIZE=32)
     train_data, val_data, test_data = dataset['train'], dataset['val'], dataset['test']
-
-    autoencoder.train(train_data, val_data, epochs=1)
+    autoencoder.train(train_data, val_data, epochs=20)
     
     n = 10
-    dataset = test_data.take(n)
+    dataset = test_data.take(n) 
 
     plt.figure(figsize=(20, 4))
     for i, batch in enumerate(dataset):
         try: 
-            # img_url = batch['img_urls'][0]
-            img_url = batch[i]
+            img_url = batch['img_urls'][i]
+            wav_url = batch['wav_urls'][i]
+            # img_url = batch[i]
 
             # ground truth
             ax = plt.subplot(2, n, i + 1)
@@ -395,49 +395,3 @@ if __name__ == '__main__':
 
     plt.savefig('data/debug/convolutional_autoencoder.png')
     print('Done!')
- 
-
-
-# if __name__ == '__main__':
-#     (x_train, _), (x_test, _) = tf.keras.datasets.mnist.load_data()
-#     x_train = x_train.astype('float32') / 255.
-#     x_test = x_test.astype('float32') / 255.
-#     x_train = x_train[..., tf.newaxis]
-#     x_test = x_test[..., tf.newaxis]
-
-#     dataset_size = len(x_train)
-#     x_train = tf.data.Dataset.from_tensor_slices(x_train).shuffle(dataset_size)
-#     x_train, x_val = x_train.take(int(dataset_size * 0.8)), x_train.skip(int(dataset_size * 0.8))
-#     x_train = x_train.batch(32).shuffle(1000)
-#     x_val = x_val.batch(32).shuffle(1000)
-#     x_test = tf.data.Dataset.from_tensor_slices(x_test).batch(32).shuffle(1000)
-
-#     autoencoder = ConvolutionalAutoencoder()
-#     autoencoder.train(x_train, x_val, epochs=3)
-        
-#     n = 10
-#     x_test = x_test.take(n).as_numpy_iterator().next()
-
-#     import matplotlib.pyplot as plt
-
-#     plt.figure(figsize=(20, 4))
-#     for i in range(n):
-#         # display original
-#         ax = plt.subplot(2, n, i + 1)
-#         img = x_test[i].reshape(28, 28)
-#         plt.imshow(img)
-#         plt.gray()
-#         ax.get_xaxis().set_visible(False)
-#         ax.get_yaxis().set_visible(False)
-#         # display reconstruction
-#         ax = plt.subplot(2, n, i + 1 + n)
-
-#         img = autoencoder(tf.expand_dims(x_test[i], axis=0)).numpy().reshape(28, 28)
-#         plt.imshow(img)
-#         plt.gray()
-#         ax.get_xaxis().set_visible(False)
-#         ax.get_yaxis().set_visible(False)
-   
-#     plt.savefig('data/debug/convolutional_autoencoder.png')
-#     print('Done!')
- 
