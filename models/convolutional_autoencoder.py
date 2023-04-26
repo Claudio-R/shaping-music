@@ -1,6 +1,6 @@
 # NOTE: mnist images are normalized in the range [0, 1]
 # NOTE: very good results using block1 and block2 of vgg19, also good results with block1 only, 128x128 images and 30 epochs
-# TODO: add sound support
+# TODO: create clip
 
 import tensorflow as tf, tensorflow_hub as hub
 import tqdm, os
@@ -102,9 +102,10 @@ class ConvolutionalAutoencoder(tf.keras.Model):
         # print("encoded_imgs: ", encoded_imgs.shape) # (32, 1024)
         # print("snd_embeds: ", snd_embeds.shape) # (32, 1, 1024)
  
-        reconstruction_loss = fn(imgs, decoded_imgs) # in the order of 2500
-        encoding_loss = fn(encoded_imgs, snd_embeds) # in the order of 1.0
-        return 0.01 * reconstruction_loss + 1.0 * encoding_loss
+        reconstruction_loss = 0.01 *  fn(imgs, decoded_imgs) # in the order of 2500
+        encoding_loss = 1.0 * fn(encoded_imgs, snd_embeds) # in the order of 1.0
+        return reconstruction_loss # + encoding_loss
+
     
     @tf.autograph.experimental.do_not_convert
     def compute_snd_embeds(self, wav_urls:tf.Tensor) -> tf.Tensor:
@@ -337,61 +338,97 @@ class ConvolutionalAutoencoder(tf.keras.Model):
 
         return dataset
 
-    def create_clip(self, wav_urls:str):
-        return
+    def create_clip(self, wav_url:str, FPS:int=12):
+        '''
+        Create a video clip from a list of audio files.
+        '''
+        # 1. Load audio file
+        filename = wav_url.split('/')[-1]
+        filename = filename.split('.')[0]
+        wav, sr = librosa.load(wav_url, sr=44100)
+
+        # 2. Split audio into segments
+        duration = librosa.get_duration(y=wav, sr=sr)
+        sampling_period = 1 / FPS
+        t_starts = np.arange(0, duration, sampling_period)
+        frames = []
+        for t_start in t_starts[:-1]:
+            wav_segment, _ = librosa.load(wav_url, sr=16000, offset=t_start, duration=sampling_period)
+            wav_segment = tf.convert_to_tensor(wav_segment, dtype=tf.float32)
+            _, wav_embeds, _ = self.snd_encoder(wav_segment)
+            frame = tf.squeeze(self.decoder(wav_embeds), axis=0)
+            frame = (frame - tf.reduce_min(frame)) / (tf.reduce_max(frame) - tf.reduce_min(frame))
+            frame = frame.numpy()
+            frame = frame[..., [2, 1, 0]]
+            frames.append(frame)
+
+        # 3. Create video clip
+        clip = mp.concatenate([mp.ImageClip(f).set_duration(sampling_period) for f in frames], method="compose")
+
+        audio = mp.AudioFileClip(wav_url)
+        if audio.duration > clip.duration:
+            audio = audio.subclip(0, clip.duration)
+        elif audio.duration < clip.duration:
+            audio = audio.fx(mp.vfx.loop, duration=clip.duration)
+
+        clip = clip.set_audio(audio)
+        clip.write_videofile(f'./data/autoencoder/video/{filename}.mp4', fps=FPS)
+        # clip.write_videofile(f"{wav_url[:-4]}.mp4", fps=FPS, codec='libx264', audio_codec='aac')
+    
 
 if __name__ == '__main__':
 
     training_videos = [
-        # 'data/test_video/test1.mp4',
-        'data/test_video/test2.mp4',
+        # 'data/test_video/test1.mp4', # Bruno Mars
+        'data/test_video/test2.mp4', # Bojack Horseman
         # 'data/test_video/test3.mp4' # Janis Joplin
     ]
     
     autoencoder = ConvolutionalAutoencoder()
-    dataset = autoencoder.create_dataset(training_videos, FPS=60, BATCH_SIZE=32)
-    train_data, val_data, test_data = dataset['train'], dataset['val'], dataset['test']
-    autoencoder.train(train_data, val_data, epochs=20)
+    # dataset = autoencoder.create_dataset(training_videos, FPS=60, BATCH_SIZE=32)
+    # train_data, val_data, test_data = dataset['train'], dataset['val'], dataset['test']
+    # autoencoder.train(train_data, val_data, epochs=4)
     
-    n = 10
-    dataset = test_data.take(n) 
+    # n = 10
+    # dataset = test_data.take(n) 
 
-    plt.figure(figsize=(20, 4))
-    for i, batch in enumerate(dataset):
-        try: 
-            img_url = batch['img_urls'][i]
-            wav_url = batch['wav_urls'][i]
-            # img_url = batch[i]
+    # plt.figure(figsize=(20, 4))
+    # for i, batch in enumerate(dataset):
+    #     try: 
+    #         img_url = batch['img_urls'][i]
+    #         wav_url = batch['wav_urls'][i]
 
-            # ground truth
-            ax = plt.subplot(2, n, i + 1)
-            img = tf.keras.preprocessing.image.load_img(img_url.numpy().decode('utf-8'))
-            img = tf.keras.preprocessing.image.img_to_array(img)
-            img = (img - img.min()) / (img.max() - img.min())
-            plt.imshow(img)
-            plt.gray()
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
+    #         # ground truth
+    #         ax = plt.subplot(2, n, i + 1)
+    #         img = tf.keras.preprocessing.image.load_img(img_url.numpy().decode('utf-8'))
+    #         img = tf.keras.preprocessing.image.img_to_array(img)
+    #         img = (img - img.min()) / (img.max() - img.min())
+    #         plt.imshow(img)
+    #         plt.gray()
+    #         ax.get_xaxis().set_visible(False)
+    #         ax.get_yaxis().set_visible(False)
 
-            # prediction
-            ax = plt.subplot(2, n, i + 1 + n)
-            img = autoencoder.preprocess_img(img_url)
-            img = tf.expand_dims(img, axis=0)
-            embeds = autoencoder.style_extractor(img)
-            styles = autoencoder.get_style(embeds)
-            encoded_img = autoencoder.encoder(styles)
-            decoded_img = tf.squeeze(autoencoder.decoder(encoded_img), axis=0)
-            decoded_img = (decoded_img - tf.reduce_min(decoded_img)) / (tf.reduce_max(decoded_img) - tf.reduce_min(decoded_img))
-            decoded_img = decoded_img.numpy()
-            decoded_img = decoded_img[..., [2, 1, 0]] # BGR -> RGB
-            plt.imshow(decoded_img)
-            plt.gray()
-            ax.get_xaxis().set_visible(False)
-            ax.get_yaxis().set_visible(False)
+    #         # prediction
+    #         ax = plt.subplot(2, n, i + 1 + n)
+    #         img = autoencoder.preprocess_img(img_url)
+    #         img = tf.expand_dims(img, axis=0)
+    #         embeds = autoencoder.style_extractor(img)
+    #         styles = autoencoder.get_style(embeds)
+    #         encoded_img = autoencoder.encoder(styles)
+    #         decoded_img = tf.squeeze(autoencoder.decoder(encoded_img), axis=0)
+    #         decoded_img = (decoded_img - tf.reduce_min(decoded_img)) / (tf.reduce_max(decoded_img) - tf.reduce_min(decoded_img))
+    #         decoded_img = decoded_img.numpy()
+    #         decoded_img = decoded_img[..., [2, 1, 0]] # BGR -> RGB
+    #         plt.imshow(decoded_img)
+    #         plt.gray()
+    #         ax.get_xaxis().set_visible(False)
+    #         ax.get_yaxis().set_visible(False)
 
-        except Exception as e:
-            print(e)
-            continue
+    #     except Exception as e:
+    #         print(e)
+    #         continue
 
-    plt.savefig('data/debug/convolutional_autoencoder.png')
+    # plt.savefig('data/debug/convolutional_autoencoder.png')
+    autoencoder.create_clip('data/test_video/test2.wav', FPS=12)
+
     print('Done!')
