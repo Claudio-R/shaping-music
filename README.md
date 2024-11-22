@@ -9,7 +9,7 @@ Abstract of the project
 ## Members of the group 
 1.	[Claudio Rapisarda] [https://github.com/Claudio-R] 
 2.	[Olga Besedova] [https://github.com/Oliffka]
-3.	[Silvia Messana] [https://github.com/SissiPrinciSexy]
+3.	[Silvia Messana] [https://github.com/MesSilvia]
 4.	[Alessandro Zullo] [https://github.com/Alessandro199762]
 
 ## Github repository
